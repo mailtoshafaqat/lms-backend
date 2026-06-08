@@ -1,0 +1,44 @@
+using Microsoft.AspNetCore.Http;
+
+namespace Lms.Shared.Tenancy;
+
+/// <summary>
+/// Default tenant resolution. Phase 1: a single seeded tenant (from config / fallback).
+/// Phase 2: resolve from subdomain/custom-domain or an authenticated tenant claim.
+/// </summary>
+public sealed class TenantContext : ITenantContext
+{
+    /// <summary>Platform/system scope for SuperAdmin accounts (not an institute tenant).</summary>
+    public static readonly Guid SystemTenantId = Guid.Parse("00000000-0000-0000-0000-000000000000");
+
+    /// <summary>Default demo institute tenant (dev seed).</summary>
+    public static readonly Guid DefaultTenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+
+    private readonly Guid _tenantId;
+
+    public TenantContext(IHttpContextAccessor accessor)
+    {
+        var http = accessor.HttpContext;
+
+        // Authenticated requests: JWT tenant_id claim wins.
+        var claim = http?.User?.FindFirst("tenant_id")?.Value;
+        if (Guid.TryParse(claim, out var fromClaim))
+        {
+            _tenantId = fromClaim;
+            return;
+        }
+
+        // Unauthenticated / pre-auth: subdomain or X-Tenant-Slug middleware.
+        if (http?.Items.TryGetValue("ResolvedTenantId", out var resolved) == true
+            && resolved is Guid tenantId)
+        {
+            _tenantId = tenantId;
+            return;
+        }
+
+        _tenantId = DefaultTenantId;
+    }
+
+    public Guid TenantId => _tenantId;
+    public bool HasTenant => _tenantId != Guid.Empty;
+}

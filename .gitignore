@@ -1,0 +1,49 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.user
+*.suo
+*.rsuser
+
+# Test / coverage
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+# NuGet
+*.nupkg
+**/packages/*
+!**/packages/build/
+
+# Publish
+publish/
+[Dd]ebug/
+[Rr]elease/
+
+# Logs & OS
+*.log
+.DS_Store
+Thumbs.db
+
+# Local config & secrets (keep appsettings.json; override locally)
+appsettings.*.local.json
+secrets.json
+*.pfx
+*.env
+.env.*
+
+# Runtime file uploads (LocalDiskFileStorage default root)
+storage/
+uploads/
+
+# Client docs belong in the parent/docs repo — not the API repo
+docs/
+
+# EF / tooling caches (safe to regenerate)
+*.dbmdl
+*.jfm
