@@ -1,0 +1,12 @@
+{
+  "name": "white-label-lms-docs",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PDF export for LMS client documents",
+  "scripts": {
+    "pdf": "node scripts/generate-docs-pdf.mjs"
+  },
+  "devDependencies": {
+    "puppeteer": "^24.43.1"
+  }
+}

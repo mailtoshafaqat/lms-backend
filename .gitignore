@@ -41,9 +41,6 @@ secrets.json
 storage/
 uploads/
 
-# Client docs belong in the parent/docs repo — not the API repo
-docs/
-
 # EF / tooling caches (safe to regenerate)
 *.dbmdl
 *.jfm
