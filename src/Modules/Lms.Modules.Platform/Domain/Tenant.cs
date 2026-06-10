@@ -20,6 +20,13 @@ public sealed class Tenant
     public PaymentMode PaymentMode { get; set; } = PaymentMode.TenantManaged;
     public bool AllowStudentSelfEnroll { get; set; }
     public bool AllowAdminCreateStudent { get; set; } = true;
+    public bool SyllabusMentorEnabled { get; set; } = true;
+
+    /// <summary>InstituteAdmin can edit bundle list prices (commercial catalog).</summary>
+    public bool BundlePriceEditEnabled { get; set; } = true;
+
+    /// <summary>Teachers and admins can bulk-import MCQs via CSV on topic quiz tab.</summary>
+    public bool McqBulkImportEnabled { get; set; } = true;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

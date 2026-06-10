@@ -18,6 +18,11 @@ using Lms.Modules.Platform;
 using Lms.Modules.Platform.Infrastructure;
 using Lms.Modules.Progress;
 using Lms.Modules.Progress.Infrastructure;
+using Lms.Modules.SyllabusMentor;
+using Lms.Modules.SyllabusMentor.Application;
+using Lms.Modules.SyllabusMentor.Infrastructure;
+using Lms.Modules.QnA;
+using Lms.Modules.QnA.Infrastructure;
 using Lms.Api.Middleware;
 using Lms.Shared;
 using Lms.Shared.Auth;
@@ -43,7 +48,9 @@ var moduleAssemblies = builder.Services.RegisterModules(
     new EnrollmentModule(),
     new ProgressModule(),
     new PlatformModule(),
-    new LiveClassesModule());
+    new LiveClassesModule(),
+    new SyllabusMentorModule(),
+    new QnAModule());
 
 // Controllers from the host + every module assembly (plug-and-play).
 var mvc = builder.Services.AddControllers()
@@ -159,6 +166,25 @@ if (app.Environment.IsDevelopment())
 
     var liveDb = sp.GetRequiredService<LiveClassesDbContext>();
     await liveDb.Database.MigrateAsync();
+
+    var mentorDb = sp.GetRequiredService<SyllabusMentorDbContext>();
+    await mentorDb.Database.MigrateAsync();
+
+    var qnaDb = sp.GetRequiredService<QnADbContext>();
+    await qnaDb.Database.MigrateAsync();
+
+    var mentor = sp.GetRequiredService<ISyllabusMentorService>();
+    foreach (var topic in topics)
+    {
+        try
+        {
+            await mentor.IngestAsync(new IngestRequest(topic.Item1, null), default);
+        }
+        catch
+        {
+            /* seed ingest is best-effort */
+        }
+    }
 }
 
 if (app.Environment.IsDevelopment())

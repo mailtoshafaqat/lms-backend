@@ -33,7 +33,16 @@ public sealed class EnrollmentService : IEnrollmentService
             return Result<EnrollmentDto>.Failure(
                 "Self-enrollment is disabled. Contact your institute administrator.");
 
-        // Sync cross-module call: ask Courses for the bundle terms.
+        return await CreateEnrollmentAsync(userId, bundleId, ct);
+    }
+
+    public Task<Result<EnrollmentDto>> ProvisionEnrollmentAsync(
+        Guid userId, Guid bundleId, CancellationToken ct = default) =>
+        CreateEnrollmentAsync(userId, bundleId, ct);
+
+    private async Task<Result<EnrollmentDto>> CreateEnrollmentAsync(
+        Guid userId, Guid bundleId, CancellationToken ct)
+    {
         var bundle = await _catalog.GetBundleAsync(bundleId, ct);
         if (bundle is null || !bundle.IsPublished)
             return Result<EnrollmentDto>.Failure("Bundle not found.");

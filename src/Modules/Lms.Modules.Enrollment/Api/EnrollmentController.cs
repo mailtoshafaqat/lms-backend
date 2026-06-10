@@ -24,6 +24,8 @@ public sealed class EnrollmentController : ControllerBase
     {
         var userId = _currentUser.UserId;
         if (userId is null) return Unauthorized();
+        if (_currentUser.Role != Roles.Student)
+            return BadRequest(new { error = "Only student accounts can enroll in courses." });
 
         var result = await _enrollments.EnrollAsync(userId.Value, bundleId, ct);
         return result.Succeeded ? Ok(result.Value) : BadRequest(new { error = result.Error });
@@ -34,6 +36,8 @@ public sealed class EnrollmentController : ControllerBase
     {
         var userId = _currentUser.UserId;
         if (userId is null) return Unauthorized();
+        if (_currentUser.Role != Roles.Student)
+            return Ok(Array.Empty<EnrollmentDto>());
         return Ok(await _enrollments.GetMyEnrollmentsAsync(userId.Value, ct));
     }
 }

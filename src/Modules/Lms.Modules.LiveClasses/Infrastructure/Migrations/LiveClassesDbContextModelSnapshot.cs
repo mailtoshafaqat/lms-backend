@@ -49,6 +49,13 @@ namespace Lms.Modules.LiveClasses.Infrastructure.Migrations
                     b.Property<int>("DurationMinutes")
                         .HasColumnType("int");
 
+                    b.Property<string>("HostName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("HostUserId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<bool>("IsCancelled")
                         .HasColumnType("bit");
 
@@ -84,6 +91,13 @@ namespace Lms.Modules.LiveClasses.Infrastructure.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<Guid>("SubjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SubjectTitle")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
 
@@ -100,6 +114,54 @@ namespace Lms.Modules.LiveClasses.Infrastructure.Migrations
                     b.HasIndex("BundleId", "ScheduledStartUtc");
 
                     b.ToTable("LiveClasses", "live");
+                });
+
+            modelBuilder.Entity("Lms.Modules.LiveClasses.Domain.LiveClassAttendance", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("JoinedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("LiveClassId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("UserName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LiveClassId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("LiveClassAttendance", "live");
+                });
+
+            modelBuilder.Entity("Lms.Modules.LiveClasses.Domain.LiveClassAttendance", b =>
+                {
+                    b.HasOne("Lms.Modules.LiveClasses.Domain.LiveClass", "LiveClass")
+                        .WithMany()
+                        .HasForeignKey("LiveClassId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("LiveClass");
                 });
 #pragma warning restore 612, 618
         }

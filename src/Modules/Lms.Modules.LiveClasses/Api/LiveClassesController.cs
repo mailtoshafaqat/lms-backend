@@ -26,4 +26,14 @@ public sealed class LiveClassesController : ControllerBase
         if (userId is null) return Unauthorized();
         return Ok(await _classes.GetForUserAsync(userId.Value, ct));
     }
+
+    [HttpPost("live-classes/{id:guid}/join")]
+    public async Task<IActionResult> Join(Guid id, CancellationToken ct)
+    {
+        var userId = _currentUser.UserId;
+        if (userId is null) return Unauthorized();
+
+        var result = await _classes.RecordJoinAsync(id, userId.Value, ct);
+        return result.Succeeded ? Ok(result.Value) : BadRequest(new { error = result.Error });
+    }
 }

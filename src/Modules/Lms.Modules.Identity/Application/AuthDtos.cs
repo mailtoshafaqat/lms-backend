@@ -16,7 +16,9 @@ public sealed record TenantFeaturesDto(
     string ZoomMode,
     string PaymentMode,
     bool AllowStudentSelfEnroll,
-    bool AllowAdminCreateStudent);
+    bool AllowAdminCreateStudent,
+    bool BundlePriceEditEnabled,
+    bool McqBulkImportEnabled);
 
 public sealed record AuthResponse(
     Guid UserId,

@@ -27,4 +27,7 @@ public sealed class TenantSettings : TenantEntity
     public string PrimaryColor { get; set; } = "#0b3d91";
     public string? SupportEmail { get; set; }
     public string? FaviconUrl { get; set; }
+
+    /// <summary>UI label for Syllabus Mentor (e.g. "Demo Academy Mentor"). Falls back to "{DisplayName} Mentor".</summary>
+    public string? MentorDisplayName { get; set; }
 }

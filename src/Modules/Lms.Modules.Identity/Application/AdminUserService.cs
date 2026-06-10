@@ -5,6 +5,7 @@ using Lms.Shared.Auth;
 using Lms.Shared.Common;
 using Lms.Shared.Email;
 using Lms.Shared.Enrollments;
+using Lms.Shared.Progress;
 using Lms.Shared.Tenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -26,6 +27,7 @@ public sealed class AdminUserService : IAdminUserService
     private readonly IBrandedEmailRenderer _brandedEmail;
     private readonly ITenantFeaturesProvider _tenantFeatures;
     private readonly IConfiguration _config;
+    private readonly IStudentGradesReader _grades;
     private readonly ILogger<AdminUserService> _logger;
 
     public AdminUserService(
@@ -36,6 +38,7 @@ public sealed class AdminUserService : IAdminUserService
         IEmailSender email,
         IBrandedEmailRenderer brandedEmail,
         ITenantFeaturesProvider tenantFeatures,
+        IStudentGradesReader grades,
         IConfiguration config,
         ILogger<AdminUserService> logger)
     {
@@ -46,6 +49,7 @@ public sealed class AdminUserService : IAdminUserService
         _email = email;
         _brandedEmail = brandedEmail;
         _tenantFeatures = tenantFeatures;
+        _grades = grades;
         _config = config;
         _logger = logger;
     }
@@ -96,13 +100,157 @@ public sealed class AdminUserService : IAdminUserService
             enrollment?.BundleTitle, enrollment?.ExpiresAt));
     }
 
-    public async Task<IReadOnlyList<StudentListItemDto>> ListStudentsAsync(CancellationToken ct = default)
+    public async Task<PagedResult<StudentListItemDto>> ListStudentsAsync(
+        PagedListQuery query, CancellationToken ct = default)
     {
-        return await _db.Users
-            .Where(u => u.Role == Roles.Student)
-            .OrderByDescending(u => u.CreatedAt)
+        var q = _db.Users.AsNoTracking().Where(u => u.Role == Roles.Student);
+
+        if (query.NormalizedSearch is { } term)
+        {
+            var lower = term.ToLowerInvariant();
+            q = q.Where(u =>
+                u.FullName.ToLower().Contains(lower) || u.Email.ToLower().Contains(lower));
+        }
+
+        q = ApplyUserSort(q, query, defaultSortBy: "createdAt", defaultDescending: true);
+
+        return await q
             .Select(u => new StudentListItemDto(u.Id, u.FullName, u.Email, u.IsActive, u.CreatedAt))
-            .ToListAsync(ct);
+            .ToPagedResultAsync(query, ct);
+    }
+
+    public async Task<Result<CreatedTeacherDto>> CreateTeacherAsync(
+        CreateTeacherRequest request, CancellationToken ct = default)
+    {
+        var email = request.Email.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(email) || !email.Contains('@'))
+            return Result<CreatedTeacherDto>.Failure("A valid email is required.");
+        if (string.IsNullOrWhiteSpace(request.FullName))
+            return Result<CreatedTeacherDto>.Failure("Full name is required.");
+        if (await _db.Users.AnyAsync(u => u.Email == email, ct))
+            return Result<CreatedTeacherDto>.Failure("An account with this email already exists.");
+
+        var tempPassword = GenerateTempPassword();
+        var user = new User
+        {
+            TenantId = _tenant.TenantId,
+            Email = email,
+            FullName = request.FullName.Trim(),
+            PasswordHash = _hasher.Hash(tempPassword),
+            Role = Roles.Teacher,
+            Provider = AuthProvider.Local,
+            MustChangePassword = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _db.Users.Add(user);
+        await _db.SaveChangesAsync(ct);
+
+        var emailSent = await TrySendTeacherWelcomeAsync(user, tempPassword, ct);
+
+        return Result<CreatedTeacherDto>.Success(new CreatedTeacherDto(
+            user.Id, user.FullName, user.Email, tempPassword, emailSent));
+    }
+
+    public async Task<Result<StudentListItemDto>> SetStudentStatusAsync(
+        Guid userId, bool isActive, CancellationToken ct = default)
+    {
+        var user = await _db.Users
+            .FirstOrDefaultAsync(u => u.Id == userId && u.Role == Roles.Student, ct);
+        if (user is null)
+            return Result<StudentListItemDto>.Failure("Student not found.");
+
+        user.IsActive = isActive;
+        await _db.SaveChangesAsync(ct);
+
+        return Result<StudentListItemDto>.Success(new StudentListItemDto(
+            user.Id, user.FullName, user.Email, user.IsActive, user.CreatedAt));
+    }
+
+    public async Task<Result<ResetStudentPasswordDto>> ResetStudentPasswordAsync(
+        Guid userId, CancellationToken ct = default)
+    {
+        var user = await _db.Users
+            .FirstOrDefaultAsync(u => u.Id == userId && u.Role == Roles.Student, ct);
+        if (user is null)
+            return Result<ResetStudentPasswordDto>.Failure("Student not found.");
+
+        var tempPassword = GenerateTempPassword();
+        user.PasswordHash = _hasher.Hash(tempPassword);
+        user.MustChangePassword = true;
+        await _db.SaveChangesAsync(ct);
+
+        var emailSent = await TrySendPasswordResetAsync(user, tempPassword, ct);
+
+        return Result<ResetStudentPasswordDto>.Success(new ResetStudentPasswordDto(
+            user.Id, user.FullName, user.Email, tempPassword, emailSent));
+    }
+
+    public async Task<PagedResult<TeacherListItemDto>> ListTeachersAsync(
+        PagedListQuery query, CancellationToken ct = default)
+    {
+        var q = _db.Users.AsNoTracking().Where(u => u.Role == Roles.Teacher);
+
+        if (query.NormalizedSearch is { } term)
+        {
+            var lower = term.ToLowerInvariant();
+            q = q.Where(u =>
+                u.FullName.ToLower().Contains(lower) || u.Email.ToLower().Contains(lower));
+        }
+
+        q = ApplyUserSort(q, query, defaultSortBy: "createdAt", defaultDescending: true);
+
+        return await q
+            .Select(u => new TeacherListItemDto(u.Id, u.FullName, u.Email, u.IsActive, u.CreatedAt))
+            .ToPagedResultAsync(query, ct);
+    }
+
+    public async Task<Result<TeacherListItemDto>> SetTeacherStatusAsync(
+        Guid userId, bool isActive, CancellationToken ct = default)
+    {
+        var user = await _db.Users
+            .FirstOrDefaultAsync(u => u.Id == userId && u.Role == Roles.Teacher, ct);
+        if (user is null)
+            return Result<TeacherListItemDto>.Failure("Teacher not found.");
+
+        user.IsActive = isActive;
+        await _db.SaveChangesAsync(ct);
+
+        return Result<TeacherListItemDto>.Success(new TeacherListItemDto(
+            user.Id, user.FullName, user.Email, user.IsActive, user.CreatedAt));
+    }
+
+    public async Task<Result<ResetTeacherPasswordDto>> ResetTeacherPasswordAsync(
+        Guid userId, CancellationToken ct = default)
+    {
+        var user = await _db.Users
+            .FirstOrDefaultAsync(u => u.Id == userId && u.Role == Roles.Teacher, ct);
+        if (user is null)
+            return Result<ResetTeacherPasswordDto>.Failure("Teacher not found.");
+
+        var tempPassword = GenerateTempPassword();
+        user.PasswordHash = _hasher.Hash(tempPassword);
+        user.MustChangePassword = true;
+        await _db.SaveChangesAsync(ct);
+
+        var emailSent = await TrySendTeacherPasswordResetAsync(user, tempPassword, ct);
+
+        return Result<ResetTeacherPasswordDto>.Success(new ResetTeacherPasswordDto(
+            user.Id, user.FullName, user.Email, tempPassword, emailSent));
+    }
+
+    private static IQueryable<User> ApplyUserSort(
+        IQueryable<User> query, PagedListQuery paging, string defaultSortBy, bool defaultDescending)
+    {
+        var sortBy = paging.SortBy?.Trim().ToLowerInvariant() ?? defaultSortBy.ToLowerInvariant();
+        var desc = PagedQueryExtensions.ResolveDescending(paging, defaultDescending);
+
+        return sortBy switch
+        {
+            "fullname" => desc ? query.OrderByDescending(u => u.FullName) : query.OrderBy(u => u.FullName),
+            "email" => desc ? query.OrderByDescending(u => u.Email) : query.OrderBy(u => u.Email),
+            _ => desc ? query.OrderByDescending(u => u.CreatedAt) : query.OrderBy(u => u.CreatedAt),
+        };
     }
 
     private async Task<bool> TrySendWelcomeAsync(
@@ -136,6 +284,198 @@ public sealed class AdminUserService : IAdminUserService
             return false;
         }
     }
+
+    private async Task<bool> TrySendTeacherWelcomeAsync(User user, string tempPassword, CancellationToken ct)
+    {
+        var loginUrl = (_config["App:BaseUrl"] ?? "http://localhost:3000").TrimEnd('/') + "/login";
+        var body =
+            $"<p>Hi {user.FullName},</p>" +
+            "<p>You have been added as a <strong>teacher</strong> on our learning platform.</p>" +
+            "<p>After signing in you can manage content and schedule live classes for your assigned subjects.</p>" +
+            "<p><strong>Your login details:</strong></p>" +
+            $"<ul><li>Email: {user.Email}</li><li>Temporary password: {tempPassword}</li></ul>" +
+            $"<p>Please sign in at <a href=\"{loginUrl}\">{loginUrl}</a> and change your password.</p>";
+
+        try
+        {
+            var html = await _brandedEmail.RenderAsync(user.TenantId, "Teacher account created", body, ct);
+            await _email.SendForTenantAsync(
+                user.TenantId,
+                new EmailMessage(user.Email, user.FullName, "Teacher account created", html), ct);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send teacher welcome email to {Email}", user.Email);
+            return false;
+        }
+    }
+
+    private async Task<bool> TrySendTeacherPasswordResetAsync(User user, string tempPassword, CancellationToken ct)
+    {
+        var loginUrl = (_config["App:BaseUrl"] ?? "http://localhost:3000").TrimEnd('/') + "/login";
+        var body =
+            $"<p>Hi {user.FullName},</p>" +
+            "<p>Your institute administrator reset your teacher account password.</p>" +
+            "<p><strong>Your new temporary login details:</strong></p>" +
+            $"<ul><li>Email: {user.Email}</li><li>Temporary password: {tempPassword}</li></ul>" +
+            $"<p>Please sign in at <a href=\"{loginUrl}\">{loginUrl}</a> and choose a new password.</p>";
+
+        try
+        {
+            var html = await _brandedEmail.RenderAsync(user.TenantId, "Your password was reset", body, ct);
+            await _email.SendForTenantAsync(
+                user.TenantId,
+                new EmailMessage(user.Email, user.FullName, "Your password was reset", html), ct);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send teacher password reset email to {Email}", user.Email);
+            return false;
+        }
+    }
+
+    private async Task<bool> TrySendPasswordResetAsync(User user, string tempPassword, CancellationToken ct)
+    {
+        var loginUrl = (_config["App:BaseUrl"] ?? "http://localhost:3000").TrimEnd('/') + "/login";
+        var body =
+            $"<p>Hi {user.FullName},</p>" +
+            "<p>Your institute administrator reset your account password.</p>" +
+            "<p><strong>Your new temporary login details:</strong></p>" +
+            $"<ul><li>Email: {user.Email}</li><li>Temporary password: {tempPassword}</li></ul>" +
+            $"<p>Please sign in at <a href=\"{loginUrl}\">{loginUrl}</a> and choose a new password.</p>";
+
+        try
+        {
+            var html = await _brandedEmail.RenderAsync(user.TenantId, "Your password was reset", body, ct);
+            await _email.SendForTenantAsync(
+                user.TenantId,
+                new EmailMessage(user.Email, user.FullName, "Your password was reset", html), ct);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send password reset email to {Email}", user.Email);
+            return false;
+        }
+    }
+
+    public async Task<IReadOnlyList<StudentGuardianDto>> ListGuardiansAsync(
+        Guid studentUserId, CancellationToken ct = default)
+    {
+        var rows = await _db.StudentGuardians.AsNoTracking()
+            .Where(g => g.StudentUserId == studentUserId)
+            .OrderBy(g => g.Name)
+            .ToListAsync(ct);
+
+        return rows.Select(MapGuardian).ToList();
+    }
+
+    public async Task<Result<StudentGuardianDto>> CreateGuardianAsync(
+        Guid studentUserId, CreateStudentGuardianRequest request, CancellationToken ct = default)
+    {
+        if (!await _db.Users.AnyAsync(u => u.Id == studentUserId && u.Role == Roles.Student, ct))
+            return Result<StudentGuardianDto>.Failure("Student not found.");
+
+        var email = request.Email.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(request.Name))
+            return Result<StudentGuardianDto>.Failure("Guardian name is required.");
+        if (string.IsNullOrWhiteSpace(email) || !email.Contains('@'))
+            return Result<StudentGuardianDto>.Failure("A valid guardian email is required.");
+
+        var entity = new StudentGuardian
+        {
+            TenantId = _tenant.TenantId,
+            StudentUserId = studentUserId,
+            Name = request.Name.Trim(),
+            Email = email,
+            WeeklyReportsEnabled = request.WeeklyReportsEnabled
+        };
+
+        _db.StudentGuardians.Add(entity);
+        await _db.SaveChangesAsync(ct);
+        return Result<StudentGuardianDto>.Success(MapGuardian(entity));
+    }
+
+    public async Task<Result<StudentGuardianDto>> UpdateGuardianAsync(
+        Guid guardianId, UpdateStudentGuardianRequest request, CancellationToken ct = default)
+    {
+        var entity = await _db.StudentGuardians.FirstOrDefaultAsync(g => g.Id == guardianId, ct);
+        if (entity is null) return Result<StudentGuardianDto>.Failure("Guardian not found.");
+
+        var email = request.Email.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(request.Name))
+            return Result<StudentGuardianDto>.Failure("Guardian name is required.");
+        if (string.IsNullOrWhiteSpace(email) || !email.Contains('@'))
+            return Result<StudentGuardianDto>.Failure("A valid guardian email is required.");
+
+        entity.Name = request.Name.Trim();
+        entity.Email = email;
+        entity.WeeklyReportsEnabled = request.WeeklyReportsEnabled;
+        await _db.SaveChangesAsync(ct);
+        return Result<StudentGuardianDto>.Success(MapGuardian(entity));
+    }
+
+    public async Task<bool> DeleteGuardianAsync(Guid guardianId, CancellationToken ct = default)
+    {
+        var entity = await _db.StudentGuardians.FirstOrDefaultAsync(g => g.Id == guardianId, ct);
+        if (entity is null) return false;
+        _db.StudentGuardians.Remove(entity);
+        await _db.SaveChangesAsync(ct);
+        return true;
+    }
+
+    public async Task<Result<SendGuardianReportResultDto>> SendGuardianReportAsync(
+        Guid studentUserId, Guid guardianId, CancellationToken ct = default)
+    {
+        var student = await _db.Users.FirstOrDefaultAsync(
+            u => u.Id == studentUserId && u.Role == Roles.Student, ct);
+        if (student is null) return Result<SendGuardianReportResultDto>.Failure("Student not found.");
+
+        var guardian = await _db.StudentGuardians.FirstOrDefaultAsync(
+            g => g.Id == guardianId && g.StudentUserId == studentUserId, ct);
+        if (guardian is null) return Result<SendGuardianReportResultDto>.Failure("Guardian not found.");
+
+        var grades = await _grades.GetRecentGradesAsync(studentUserId, ct: ct);
+        var emailSent = await TrySendGuardianReportAsync(student, guardian, grades, ct);
+        return Result<SendGuardianReportResultDto>.Success(new SendGuardianReportResultDto(emailSent));
+    }
+
+    private async Task<bool> TrySendGuardianReportAsync(
+        User student, StudentGuardian guardian, IReadOnlyList<StudentGradeDto> grades, CancellationToken ct)
+    {
+        var rows = grades.Count == 0
+            ? "<p>No quiz activity recorded yet.</p>"
+            : "<ul>" + string.Join("", grades.Take(15).Select(g =>
+                $"<li><strong>{g.QuizTitle}</strong>: {g.Score}/{g.Total} ({g.Percentage}%) " +
+                $"on {g.SubmittedAt:dd MMM yyyy}</li>")) + "</ul>";
+
+        var body =
+            $"<p>Hi {guardian.Name},</p>" +
+            $"<p>Here is the latest progress report for <strong>{student.FullName}</strong>:</p>" +
+            rows;
+
+        try
+        {
+            var html = await _brandedEmail.RenderAsync(
+                student.TenantId, $"Progress report: {student.FullName}", body, ct);
+            await _email.SendForTenantAsync(
+                student.TenantId,
+                new EmailMessage(guardian.Email, guardian.Name,
+                    $"Progress report: {student.FullName}", html),
+                ct);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send guardian report to {Email}", guardian.Email);
+            return false;
+        }
+    }
+
+    private static StudentGuardianDto MapGuardian(StudentGuardian g) =>
+        new(g.Id, g.StudentUserId, g.Name, g.Email, g.WeeklyReportsEnabled);
 
     private static string GenerateTempPassword(int length = 12)
     {

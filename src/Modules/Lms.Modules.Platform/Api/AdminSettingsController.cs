@@ -1,6 +1,7 @@
 using Lms.Modules.Platform.Application;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Lms.Modules.Platform.Api;
 
@@ -56,6 +57,10 @@ public sealed class AdminSettingsController : ControllerBase
         catch (InvalidOperationException ex)
         {
             return BadRequest(new { error = ex.Message });
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new { error = "Landing page was changed elsewhere. Refresh and try again." });
         }
     }
 }

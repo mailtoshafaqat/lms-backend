@@ -2,6 +2,7 @@ using Lms.Modules.Assessments.Contracts;
 using Lms.Modules.Progress.Application;
 using Lms.Modules.Progress.Infrastructure;
 using Lms.Shared.Events;
+using Lms.Shared.Progress;
 using Lms.Shared.Modules;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -21,6 +22,7 @@ public sealed class ProgressModule : IModule
                 sql => sql.MigrationsHistoryTable("__EFMigrationsHistory", "progress")));
 
         services.AddScoped<IProgressService, ProgressService>();
+        services.AddScoped<IStudentGradesReader, StudentGradesReader>();
         services.AddScoped<IMistakeDiaryService, MistakeDiaryService>();
 
         services.AddScoped<IEventHandler<QuizSubmittedEvent>, QuizSubmittedHandler>();

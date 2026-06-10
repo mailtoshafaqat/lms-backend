@@ -18,6 +18,7 @@ public sealed class CoursesDbContext : DbContext
     public DbSet<Subject> Subjects => Set<Subject>();
     public DbSet<Unit> Units => Set<Unit>();
     public DbSet<Topic> Topics => Set<Topic>();
+    public DbSet<SubjectTeacher> SubjectTeachers => Set<SubjectTeacher>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -53,6 +54,16 @@ public sealed class CoursesDbContext : DbContext
             e.ToTable("Topics");
             e.Property(t => t.Title).IsRequired().HasMaxLength(200);
             e.HasQueryFilter(t => t.TenantId == _tenant.TenantId);
+        });
+
+        builder.Entity<SubjectTeacher>(e =>
+        {
+            e.ToTable("SubjectTeachers");
+            e.HasIndex(a => new { a.SubjectId, a.UserId }).IsUnique();
+            e.HasIndex(a => a.UserId);
+            e.HasQueryFilter(a => a.TenantId == _tenant.TenantId);
+            e.HasOne(a => a.Subject).WithMany().HasForeignKey(a => a.SubjectId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         base.OnModelCreating(builder);

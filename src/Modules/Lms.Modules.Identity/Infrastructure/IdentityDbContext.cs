@@ -19,6 +19,7 @@ public sealed class IdentityDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+    public DbSet<StudentGuardian> StudentGuardians => Set<StudentGuardian>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -52,6 +53,15 @@ public sealed class IdentityDbContext : DbContext
             e.Property(r => r.Token).IsRequired().HasMaxLength(128);
             e.HasIndex(r => r.Token).IsUnique();
             e.Ignore(r => r.IsValid);
+        });
+
+        builder.Entity<StudentGuardian>(e =>
+        {
+            e.ToTable("StudentGuardians");
+            e.Property(g => g.Name).IsRequired().HasMaxLength(200);
+            e.Property(g => g.Email).IsRequired().HasMaxLength(256);
+            e.HasIndex(g => g.StudentUserId);
+            e.HasQueryFilter(g => g.TenantId == _tenant.TenantId);
         });
 
         base.OnModelCreating(builder);

@@ -3,6 +3,7 @@ using Lms.Modules.Platform.Infrastructure;
 using Lms.Shared.Email;
 using Lms.Shared.Tenancy;
 using Lms.Shared.Integrations;
+using Lms.Shared.Mentor;
 using Lms.Shared.Modules;
 using Lms.Shared.Tenancy;
 using Microsoft.EntityFrameworkCore;
@@ -31,5 +32,6 @@ public sealed class PlatformModule : IModule
         services.AddScoped<ITenantZoomSettingsProvider, TenantZoomSettingsProvider>();
         services.AddScoped<IEmailSender, SmtpEmailSender>();
         services.AddScoped<IBrandedEmailRenderer, BrandedEmailRenderer>();
+        services.AddScoped<ISyllabusMentorGate, SyllabusMentorGate>();
     }
 }

@@ -21,6 +21,7 @@ public sealed class ContentModule : IModule
 
         services.AddScoped<IContentService, ContentService>();
         services.AddScoped<IContentAdminService, ContentAdminService>();
+        services.AddScoped<IContentNotesReader, ContentNotesReader>();
         services.AddScoped<ILectureWriter, LectureWriter>();
     }
 }

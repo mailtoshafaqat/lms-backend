@@ -33,7 +33,8 @@ public sealed class ProgressController : ControllerBase
     [HttpGet("leaderboard")]
     public async Task<IActionResult> Leaderboard([FromQuery] int take = 10, CancellationToken ct = default)
     {
-        var rows = await _progress.GetLeaderboardAsync(take, _currentUser.UserId, ct);
+        var size = take <= 5 ? 5 : 10;
+        var rows = await _progress.GetLeaderboardAsync(size, _currentUser.UserId, ct);
         return Ok(rows);
     }
 

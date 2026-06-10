@@ -90,6 +90,37 @@ namespace Lms.Modules.Courses.Infrastructure.Migrations
                     b.ToTable("Subjects", "courses");
                 });
 
+            modelBuilder.Entity("Lms.Modules.Courses.Domain.SubjectTeacher", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("SubjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("SubjectId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("SubjectTeachers", "courses");
+                });
+
             modelBuilder.Entity("Lms.Modules.Courses.Domain.Topic", b =>
                 {
                     b.Property<Guid>("Id")
@@ -174,6 +205,17 @@ namespace Lms.Modules.Courses.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Bundle");
+                });
+
+            modelBuilder.Entity("Lms.Modules.Courses.Domain.SubjectTeacher", b =>
+                {
+                    b.HasOne("Lms.Modules.Courses.Domain.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Subject");
                 });
 
             modelBuilder.Entity("Lms.Modules.Courses.Domain.Topic", b =>

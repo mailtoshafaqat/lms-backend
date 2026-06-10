@@ -15,5 +15,32 @@ public sealed class Quiz : TenantEntity
     public string Title { get; set; } = string.Empty;
     public QuizType Type { get; set; } = QuizType.DailyPracticeTest;
 
+    /// <summary>Minutes allowed once a student starts. Null = no per-attempt time limit.</summary>
+    public int? TimeLimitMinutes { get; set; }
+
+    /// <summary>UTC window start. Null = available immediately.</summary>
+    public DateTime? AvailableFromUtc { get; set; }
+
+    /// <summary>UTC window end. Null = no end date.</summary>
+    public DateTime? AvailableUntilUtc { get; set; }
+
+    public ResultVisibilityMode ResultVisibility { get; set; } = ResultVisibilityMode.Immediate;
+
+    /// <summary>When true, per-question review and explanations are shown once results are visible.</summary>
+    public bool ShowExplanations { get; set; } = true;
+
+    /// <summary>Set when teacher publishes results (manual mode).</summary>
+    public DateTime? ResultsPublishedAtUtc { get; set; }
+
+    public bool NotifyTeachersOnBatchComplete { get; set; }
+
+    /// <summary>Percent of enrolled students who must submit before teacher notification (default 80).</summary>
+    public int BatchCompleteThresholdPercent { get; set; } = 80;
+
+    public bool BatchNotifySent { get; set; }
+
     public ICollection<Question> Questions { get; set; } = new List<Question>();
+
+    public bool RequiresScheduledAttempt =>
+        TimeLimitMinutes is > 0 || AvailableFromUtc is not null || AvailableUntilUtc is not null;
 }

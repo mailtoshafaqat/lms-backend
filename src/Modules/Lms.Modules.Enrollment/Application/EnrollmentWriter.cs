@@ -13,7 +13,7 @@ public sealed class EnrollmentWriter : IEnrollmentWriter
 
     public async Task<EnrollmentSummary?> EnrollAsync(Guid userId, Guid bundleId, CancellationToken ct = default)
     {
-        var result = await _enrollments.EnrollAsync(userId, bundleId, ct);
+        var result = await _enrollments.ProvisionEnrollmentAsync(userId, bundleId, ct);
         if (!result.Succeeded || result.Value is null) return null;
 
         var e = result.Value;
@@ -34,6 +34,17 @@ public sealed class EnrollmentReader : IEnrollmentReader
         return await _db.Enrollments
             .Where(e => e.UserId == userId && e.ExpiresAt > now)
             .Select(e => e.BundleId)
+            .Distinct()
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<Guid>> GetActiveUserIdsForBundleAsync(
+        Guid bundleId, CancellationToken ct = default)
+    {
+        var now = DateTime.UtcNow;
+        return await _db.Enrollments
+            .Where(e => e.BundleId == bundleId && e.ExpiresAt > now)
+            .Select(e => e.UserId)
             .Distinct()
             .ToListAsync(ct);
     }

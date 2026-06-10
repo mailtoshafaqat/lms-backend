@@ -13,6 +13,7 @@
     <Project Path="src/Modules/Lms.Modules.LiveClasses/Lms.Modules.LiveClasses.csproj" />
     <Project Path="src/Modules/Lms.Modules.Platform/Lms.Modules.Platform.csproj" />
     <Project Path="src/Modules/Lms.Modules.Progress/Lms.Modules.Progress.csproj" />
+    <Project Path="src/Modules/Lms.Modules.SyllabusMentor/Lms.Modules.SyllabusMentor.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Lms.Tests/Lms.Tests.csproj" />

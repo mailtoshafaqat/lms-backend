@@ -15,6 +15,7 @@ public sealed class LiveClassesDbContext : DbContext
     }
 
     public DbSet<LiveClass> LiveClasses => Set<LiveClass>();
+    public DbSet<LiveClassAttendance> Attendance => Set<LiveClassAttendance>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -30,6 +31,14 @@ public sealed class LiveClassesDbContext : DbContext
             e.Property(x => x.MeetingId).HasMaxLength(64);
             e.Property(x => x.Passcode).HasMaxLength(64);
             e.HasIndex(x => new { x.BundleId, x.ScheduledStartUtc });
+            e.HasQueryFilter(x => x.TenantId == _tenant.TenantId);
+        });
+
+        builder.Entity<LiveClassAttendance>(e =>
+        {
+            e.ToTable("LiveClassAttendance");
+            e.Property(x => x.UserName).IsRequired().HasMaxLength(200);
+            e.HasIndex(x => new { x.LiveClassId, x.UserId }).IsUnique();
             e.HasQueryFilter(x => x.TenantId == _tenant.TenantId);
         });
 

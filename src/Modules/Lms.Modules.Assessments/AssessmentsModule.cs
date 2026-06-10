@@ -21,6 +21,9 @@ public sealed class AssessmentsModule : IModule
 
         services.AddScoped<IQuizService, QuizService>();
         services.AddScoped<IQuizAdminService, QuizAdminService>();
+        services.AddScoped<IMockExamService, MockExamService>();
+        services.AddScoped<IMockExamAdminService, MockExamAdminService>();
+        services.AddScoped<QuizBatchNotifier>();
         services.AddScoped<IQuestionReader, QuestionReader>();
     }
 }

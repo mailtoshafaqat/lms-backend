@@ -32,7 +32,9 @@ public sealed record TenantFeatures(
     ZoomMode ZoomMode,
     PaymentMode PaymentMode,
     bool AllowStudentSelfEnroll,
-    bool AllowAdminCreateStudent);
+    bool AllowAdminCreateStudent,
+    bool BundlePriceEditEnabled,
+    bool McqBulkImportEnabled);
 
 public interface ITenantFeaturesProvider
 {

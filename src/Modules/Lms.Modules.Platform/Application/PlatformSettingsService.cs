@@ -75,7 +75,7 @@ public sealed class PlatformSettingsService : IPlatformSettingsService
         var s = await _db.TenantSettings.IgnoreQueryFilters().AsNoTracking()
             .FirstOrDefaultAsync(x => x.TenantId == tenant.Id, ct);
 
-        return MapBranding(tenant.Slug, tenant.Name, s);
+        return MapBranding(tenant, s);
     }
 
     public async Task<BrandingDto> GetBrandingAsync(CancellationToken ct = default)
@@ -83,9 +83,7 @@ public sealed class PlatformSettingsService : IPlatformSettingsService
         var tenant = await _db.Tenants.AsNoTracking()
             .FirstOrDefaultAsync(t => t.Id == _tenant.TenantId, ct);
         var s = await _db.TenantSettings.AsNoTracking().FirstOrDefaultAsync(ct);
-        var slug = tenant?.Slug ?? "demo";
-        var name = tenant?.Name ?? "Institute";
-        return MapBranding(slug, name, s)!;
+        return MapBranding(tenant, s)!;
     }
 
     public async Task<BrandingDto> UpdateBrandingAsync(UpdateBrandingRequest request, CancellationToken ct = default)
@@ -96,7 +94,7 @@ public sealed class PlatformSettingsService : IPlatformSettingsService
 
         var tenant = await _db.Tenants.AsNoTracking()
             .FirstOrDefaultAsync(t => t.Id == _tenant.TenantId, ct);
-        return MapBranding(tenant?.Slug ?? "demo", s.DisplayName, s)!;
+        return MapBranding(tenant, s)!;
     }
 
     public async Task<BrandingDto> UpdateTenantBrandingAsync(
@@ -118,7 +116,7 @@ public sealed class PlatformSettingsService : IPlatformSettingsService
             s.DisplayName = tenant.Name;
 
         await _db.SaveChangesAsync(ct);
-        return MapBranding(tenant.Slug, s.DisplayName, s)!;
+        return MapBranding(tenant, s)!;
     }
 
     private static void ApplyBranding(TenantSettings s, UpdateBrandingRequest request)
@@ -128,18 +126,30 @@ public sealed class PlatformSettingsService : IPlatformSettingsService
         s.FaviconUrl = string.IsNullOrWhiteSpace(request.FaviconUrl) ? null : request.FaviconUrl.Trim();
         s.PrimaryColor = string.IsNullOrWhiteSpace(request.PrimaryColor) ? "#0b3d91" : request.PrimaryColor.Trim();
         s.SupportEmail = string.IsNullOrWhiteSpace(request.SupportEmail) ? null : request.SupportEmail.Trim();
+        s.MentorDisplayName = string.IsNullOrWhiteSpace(request.MentorDisplayName)
+            ? null
+            : request.MentorDisplayName.Trim();
     }
 
-    private static BrandingDto? MapBranding(string slug, string fallbackName, TenantSettings? s)
+    private static BrandingDto? MapBranding(Tenant? tenant, TenantSettings? s)
     {
+        var slug = tenant?.Slug ?? "demo";
+        var fallbackName = tenant?.Name ?? "Institute";
         var display = !string.IsNullOrWhiteSpace(s?.DisplayName) ? s!.DisplayName : fallbackName;
+        var mentorName = !string.IsNullOrWhiteSpace(s?.MentorDisplayName)
+            ? s!.MentorDisplayName!
+            : $"{display} Mentor";
         return new BrandingDto(
             slug,
             display,
             s?.LogoUrl,
             s?.FaviconUrl,
             string.IsNullOrWhiteSpace(s?.PrimaryColor) ? "#0b3d91" : s!.PrimaryColor,
-            s?.SupportEmail);
+            s?.SupportEmail,
+            mentorName,
+            tenant?.SyllabusMentorEnabled ?? true,
+            tenant?.BundlePriceEditEnabled ?? true,
+            tenant?.McqBulkImportEnabled ?? true);
     }
 
     private async Task<TenantSettings> GetOrCreateAsync(CancellationToken ct)

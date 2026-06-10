@@ -22,6 +22,9 @@ public sealed record TenantDetailDto(
     PaymentMode PaymentMode,
     bool AllowStudentSelfEnroll,
     bool AllowAdminCreateStudent,
+    bool SyllabusMentorEnabled,
+    bool BundlePriceEditEnabled,
+    bool McqBulkImportEnabled,
     DateTime CreatedAt);
 
 public sealed record CreateTenantRequest(
@@ -37,6 +40,9 @@ public sealed record UpdateTenantFlagsRequest(
     ZoomMode ZoomMode,
     PaymentMode PaymentMode,
     bool AllowStudentSelfEnroll,
-    bool AllowAdminCreateStudent);
+    bool AllowAdminCreateStudent,
+    bool SyllabusMentorEnabled,
+    bool BundlePriceEditEnabled,
+    bool McqBulkImportEnabled);
 
 public sealed record CreateTenantAdminRequest(string FullName, string Email);

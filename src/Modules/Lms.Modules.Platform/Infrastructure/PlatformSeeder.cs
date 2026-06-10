@@ -68,7 +68,7 @@ public static class PlatformSeeder
                         {
                             new { title = "Live & recorded classes", description = "Zoom live sessions plus on-demand lectures.", icon = "Video" },
                             new { title = "MCQs & flashcards", description = "Daily practice tests with explanations.", icon = "BookOpen" },
-                            new { title = "AI Ask Kitab", description = "Syllabus-scoped answers with citations.", icon = "Brain" }
+                            new { title = "Syllabus Mentor", description = "Syllabus-scoped answers with citations — no open web.", icon = "Brain" }
                         }
                     })
                 },

@@ -1,5 +1,7 @@
 using Lms.Modules.Content.Domain;
 using Lms.Modules.Content.Infrastructure;
+using Lms.Shared.Content;
+using Lms.Shared.Events;
 using Lms.Shared.Tenancy;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,11 +11,13 @@ public sealed class ContentAdminService : IContentAdminService
 {
     private readonly ContentDbContext _db;
     private readonly ITenantContext _tenant;
+    private readonly IEventBus _events;
 
-    public ContentAdminService(ContentDbContext db, ITenantContext tenant)
+    public ContentAdminService(ContentDbContext db, ITenantContext tenant, IEventBus events)
     {
         _db = db;
         _tenant = tenant;
+        _events = events;
     }
 
     public async Task<LectureDto> AddLectureAsync(Guid topicId, CreateLectureRequest req, CancellationToken ct = default)
@@ -44,6 +48,7 @@ public sealed class ContentAdminService : IContentAdminService
         };
         _db.Notes.Add(note);
         await _db.SaveChangesAsync(ct);
+        await _events.PublishAsync(new NoteContentChangedEvent(_tenant.TenantId, topicId), ct);
         return new NoteDto(note.Id, note.Title, note.ContentHtml, null, note.Order);
     }
 
@@ -60,8 +65,10 @@ public sealed class ContentAdminService : IContentAdminService
     {
         var note = await _db.Notes.FindAsync([id], ct);
         if (note is null) return false;
+        var topicId = note.TopicId;
         _db.Notes.Remove(note);
         await _db.SaveChangesAsync(ct);
+        await _events.PublishAsync(new NoteContentChangedEvent(_tenant.TenantId, topicId), ct);
         return true;
     }
 }

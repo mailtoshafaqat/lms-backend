@@ -21,15 +21,26 @@ public sealed class QuizzesController : ControllerBase
     [HttpGet("topics/{topicId:guid}/quiz")]
     public async Task<IActionResult> GetByTopic(Guid topicId, CancellationToken ct)
     {
-        var quiz = await _quizzes.GetByTopicAsync(topicId, ct);
+        var quiz = await _quizzes.GetByTopicAsync(topicId, _currentUser.UserId, ct);
         return quiz is null ? NotFound() : Ok(quiz);
     }
 
     [HttpGet("quizzes/{quizId:guid}")]
     public async Task<IActionResult> Get(Guid quizId, CancellationToken ct)
     {
-        var quiz = await _quizzes.GetAsync(quizId, ct);
+        var quiz = await _quizzes.GetAsync(quizId, _currentUser.UserId, ct);
         return quiz is null ? NotFound() : Ok(quiz);
+    }
+
+    [Authorize]
+    [HttpPost("quizzes/{quizId:guid}/attempts/start")]
+    public async Task<IActionResult> StartAttempt(Guid quizId, CancellationToken ct)
+    {
+        var userId = _currentUser.UserId;
+        if (userId is null) return Unauthorized();
+
+        var result = await _quizzes.StartAttemptAsync(quizId, userId.Value, ct);
+        return result.Succeeded ? Ok(result.Value) : BadRequest(new { error = result.Error });
     }
 
     [Authorize]
@@ -40,6 +51,17 @@ public sealed class QuizzesController : ControllerBase
         if (userId is null) return Unauthorized();
 
         var result = await _quizzes.SubmitAsync(quizId, userId.Value, request, ct);
+        return result.Succeeded ? Ok(result.Value) : BadRequest(new { error = result.Error });
+    }
+
+    [Authorize]
+    [HttpGet("quizzes/{quizId:guid}/attempts/result")]
+    public async Task<IActionResult> GetAttemptResult(Guid quizId, CancellationToken ct)
+    {
+        var userId = _currentUser.UserId;
+        if (userId is null) return Unauthorized();
+
+        var result = await _quizzes.GetAttemptResultAsync(quizId, userId.Value, ct);
         return result.Succeeded ? Ok(result.Value) : BadRequest(new { error = result.Error });
     }
 }

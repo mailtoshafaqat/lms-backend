@@ -1,5 +1,6 @@
 using Lms.Modules.LiveClasses.Application;
 using Lms.Shared.Auth;
+using Lms.Shared.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -20,8 +21,15 @@ public sealed class AdminLiveClassesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> List(CancellationToken ct) =>
-        Ok(await _classes.ListAsync(ct));
+    public async Task<IActionResult> List(
+        [FromQuery] PagedListQuery query,
+        [FromQuery] string? state,
+        CancellationToken ct)
+    {
+        var userId = _currentUser.UserId ?? Guid.Empty;
+        var role = _currentUser.Role ?? Roles.Student;
+        return Ok(await _classes.ListAsync(userId, role, query, state, ct));
+    }
 
     [HttpGet("zoom-status")]
     public async Task<IActionResult> ZoomStatus(CancellationToken ct) =>
@@ -31,7 +39,8 @@ public sealed class AdminLiveClassesController : ControllerBase
     public async Task<IActionResult> Create([FromBody] CreateLiveClassRequest req, CancellationToken ct)
     {
         var userId = _currentUser.UserId ?? Guid.Empty;
-        var result = await _classes.CreateAsync(userId, req, ct);
+        var role = _currentUser.Role ?? Roles.Student;
+        var result = await _classes.CreateAsync(userId, role, req, ct);
         return result.Succeeded ? Ok(result.Value) : BadRequest(new { error = result.Error });
     }
 
@@ -44,5 +53,25 @@ public sealed class AdminLiveClassesController : ControllerBase
     {
         var result = await _classes.AttachRecordingAsync(id, req, ct);
         return result.Succeeded ? Ok(result.Value) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpGet("{id:guid}/attendance")]
+    public async Task<IActionResult> Attendance(Guid id, CancellationToken ct)
+    {
+        var userId = _currentUser.UserId ?? Guid.Empty;
+        var role = _currentUser.Role ?? Roles.Student;
+        var result = await _classes.GetAttendanceAsync(userId, role, id, ct);
+
+        if (!result.Succeeded)
+        {
+            return result.Error switch
+            {
+                "Forbidden" => StatusCode(403, new { error = "You do not have access to this class." }),
+                "Live class not found." => NotFound(new { error = result.Error }),
+                _ => BadRequest(new { error = result.Error })
+            };
+        }
+
+        return Ok(result.Value);
     }
 }

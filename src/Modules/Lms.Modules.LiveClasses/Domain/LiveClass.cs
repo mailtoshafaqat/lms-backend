@@ -14,6 +14,10 @@ public sealed class LiveClass : TenantEntity
 {
     public Guid BundleId { get; set; }
     public string BundleTitle { get; set; } = string.Empty;
+    public Guid SubjectId { get; set; }
+    public string SubjectTitle { get; set; } = string.Empty;
+    public Guid HostUserId { get; set; }
+    public string HostName { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
     public DateTime ScheduledStartUtc { get; set; }

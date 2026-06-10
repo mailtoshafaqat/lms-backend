@@ -79,6 +79,9 @@ public sealed class TenantAdminService : ITenantAdminService
         tenant.PaymentMode = request.PaymentMode;
         tenant.AllowStudentSelfEnroll = request.AllowStudentSelfEnroll;
         tenant.AllowAdminCreateStudent = request.AllowAdminCreateStudent;
+        tenant.SyllabusMentorEnabled = request.SyllabusMentorEnabled;
+        tenant.BundlePriceEditEnabled = request.BundlePriceEditEnabled;
+        tenant.McqBulkImportEnabled = request.McqBulkImportEnabled;
 
         var domain = string.IsNullOrWhiteSpace(request.CustomDomain)
             ? null
@@ -96,8 +99,13 @@ public sealed class TenantAdminService : ITenantAdminService
         Guid tenantId, CreateTenantAdminRequest request, CancellationToken ct = default) =>
         _provisioner.CreateAsync(tenantId, request.Email, request.FullName, ct);
 
+    public Task<Result<ResetInstituteAdminPasswordDto>> ResetInstituteAdminPasswordAsync(
+        Guid tenantId, Guid userId, CancellationToken ct = default) =>
+        _provisioner.ResetPasswordAsync(tenantId, userId, ct);
+
     private static TenantDetailDto MapDetail(Tenant t) => new(
         t.Id, t.Name, t.Slug, t.CustomDomain, t.Status, t.Plan,
         t.LiveClassesEnabled, t.ZoomMode, t.PaymentMode,
-        t.AllowStudentSelfEnroll, t.AllowAdminCreateStudent, t.CreatedAt);
+        t.AllowStudentSelfEnroll, t.AllowAdminCreateStudent, t.SyllabusMentorEnabled,
+        t.BundlePriceEditEnabled, t.McqBulkImportEnabled, t.CreatedAt);
 }

@@ -14,4 +14,6 @@ public interface IEnrollmentWriter
 public interface IEnrollmentReader
 {
     Task<IReadOnlyList<Guid>> GetActiveBundleIdsAsync(Guid userId, CancellationToken ct = default);
+
+    Task<IReadOnlyList<Guid>> GetActiveUserIdsForBundleAsync(Guid bundleId, CancellationToken ct = default);
 }

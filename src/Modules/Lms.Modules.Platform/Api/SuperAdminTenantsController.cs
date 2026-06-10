@@ -1,4 +1,5 @@
 using Lms.Modules.Platform.Application;
+using Lms.Shared.Users;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,11 +12,16 @@ public sealed class SuperAdminTenantsController : ControllerBase
 {
     private readonly ITenantAdminService _tenants;
     private readonly IPlatformSettingsService _settings;
+    private readonly IInstituteAdminReader _admins;
 
-    public SuperAdminTenantsController(ITenantAdminService tenants, IPlatformSettingsService settings)
+    public SuperAdminTenantsController(
+        ITenantAdminService tenants,
+        IPlatformSettingsService settings,
+        IInstituteAdminReader admins)
     {
         _tenants = tenants;
         _settings = settings;
+        _admins = admins;
     }
 
     [HttpGet]
@@ -43,10 +49,24 @@ public sealed class SuperAdminTenantsController : ControllerBase
         return result.Succeeded ? Ok(result.Value) : BadRequest(new { error = result.Error });
     }
 
+    [HttpGet("{id:guid}/admins")]
+    public async Task<IActionResult> ListAdmins(Guid id, CancellationToken ct)
+    {
+        if (await _tenants.GetAsync(id, ct) is null) return NotFound();
+        return Ok(await _admins.ListByTenantAsync(id, ct));
+    }
+
     [HttpPost("{id:guid}/admins")]
     public async Task<IActionResult> CreateAdmin(Guid id, [FromBody] CreateTenantAdminRequest req, CancellationToken ct)
     {
         var result = await _tenants.CreateInstituteAdminAsync(id, req, ct);
+        return result.Succeeded ? Ok(result.Value) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPost("{id:guid}/admins/{userId:guid}/reset-password")]
+    public async Task<IActionResult> ResetAdminPassword(Guid id, Guid userId, CancellationToken ct)
+    {
+        var result = await _tenants.ResetInstituteAdminPasswordAsync(id, userId, ct);
         return result.Succeeded ? Ok(result.Value) : BadRequest(new { error = result.Error });
     }
 

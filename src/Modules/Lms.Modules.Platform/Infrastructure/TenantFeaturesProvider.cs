@@ -21,5 +21,6 @@ public sealed class TenantFeaturesProvider : ITenantFeaturesProvider
     internal static TenantFeatures Map(Tenant t) => new(
         t.Id, t.Name, t.Slug, t.Status, t.Plan,
         t.LiveClassesEnabled, t.ZoomMode, t.PaymentMode,
-        t.AllowStudentSelfEnroll, t.AllowAdminCreateStudent);
+        t.AllowStudentSelfEnroll, t.AllowAdminCreateStudent,
+        t.BundlePriceEditEnabled, t.McqBulkImportEnabled);
 }

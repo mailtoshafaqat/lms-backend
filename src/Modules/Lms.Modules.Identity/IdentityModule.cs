@@ -26,8 +26,11 @@ public sealed class IdentityModule : IModule
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IAdminUserService, AdminUserService>();
         services.AddScoped<IInstituteAdminProvisioner, InstituteAdminProvisioner>();
+        services.AddScoped<IInstituteAdminReader, InstituteAdminReader>();
 
         // Cross-module contract: expose user display names to other modules (e.g. Progress leaderboard).
         services.AddScoped<IUserDirectory, UserDirectory>();
+        services.AddScoped<IInstituteUserReader, InstituteUserReader>();
+        services.AddHostedService<GuardianWeeklyReportJob>();
     }
 }

@@ -149,20 +149,34 @@ public sealed class AuthService : IAuthService
         return new TenantFeaturesDto(
             f.TenantId, f.TenantName, f.Slug, f.Status.ToString(), f.Plan,
             f.LiveClassesEnabled, f.ZoomMode.ToString(), f.PaymentMode.ToString(),
-            f.AllowStudentSelfEnroll, f.AllowAdminCreateStudent);
+            f.AllowStudentSelfEnroll, f.AllowAdminCreateStudent,
+            f.BundlePriceEditEnabled, f.McqBulkImportEnabled);
     }
 
     public async Task<Result<bool>> ChangePasswordAsync(
         Guid userId, ChangePasswordRequest request, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Length < 8)
+        var currentPassword = request.CurrentPassword.Trim();
+        var newPassword = request.NewPassword.Trim();
+
+        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 8)
             return Result<bool>.Failure("New password must be at least 8 characters.");
 
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
-        if (user is null || user.PasswordHash is null || !_hasher.Verify(request.CurrentPassword, user.PasswordHash))
-            return Result<bool>.Failure("Current password is incorrect.");
+        // Ignore tenant filter — JWT user id is authoritative; filter can mismatch on auth endpoints.
+        var user = await _db.Users
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Id == userId, ct);
 
-        user.PasswordHash = _hasher.Hash(request.NewPassword);
+        if (user is null || user.PasswordHash is null)
+            return Result<bool>.Failure("Account not found.");
+
+        if (!_hasher.Verify(currentPassword, user.PasswordHash))
+            return Result<bool>.Failure(
+                user.MustChangePassword
+                    ? "Temporary password is incorrect. Use the exact password shown when your account was created."
+                    : "Current password is incorrect.");
+
+        user.PasswordHash = _hasher.Hash(newPassword);
         user.MustChangePassword = false;
         await _db.SaveChangesAsync(ct);
 

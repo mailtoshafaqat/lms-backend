@@ -15,6 +15,10 @@ public sealed record LiveClassDto(
     Guid Id,
     Guid BundleId,
     string BundleTitle,
+    Guid SubjectId,
+    string SubjectTitle,
+    Guid HostUserId,
+    string HostName,
     string Title,
     string? Description,
     DateTime ScheduledStartUtc,
@@ -30,6 +34,10 @@ public sealed record AdminLiveClassDto(
     Guid Id,
     Guid BundleId,
     string BundleTitle,
+    Guid SubjectId,
+    string SubjectTitle,
+    Guid HostUserId,
+    string HostName,
     string Title,
     string? Description,
     DateTime ScheduledStartUtc,
@@ -52,9 +60,23 @@ public sealed record AttachRecordingRequest(
 /// <summary>When Zoom is configured the meeting is auto-created; otherwise <see cref="ManualJoinUrl"/>
 /// is required.</summary>
 public sealed record CreateLiveClassRequest(
-    Guid BundleId,
+    Guid SubjectId,
+    Guid HostUserId,
     string Title,
     string? Description,
     DateTime ScheduledStartUtc,
     int DurationMinutes,
     string? ManualJoinUrl);
+
+public sealed record LiveClassAttendanceRowDto(
+    Guid UserId,
+    string UserName,
+    DateTime JoinedAtUtc);
+
+public sealed record LiveClassAttendanceDto(
+    Guid LiveClassId,
+    string Title,
+    int TotalJoined,
+    IReadOnlyList<LiveClassAttendanceRowDto> Attendees);
+
+public sealed record RecordJoinResultDto(string JoinUrl);

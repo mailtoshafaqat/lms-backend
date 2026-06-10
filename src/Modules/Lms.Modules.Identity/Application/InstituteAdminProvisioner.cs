@@ -68,6 +68,37 @@ public sealed class InstituteAdminProvisioner : IInstituteAdminProvisioner
             user.Id, user.FullName, user.Email, tempPassword, tenantId));
     }
 
+    public async Task<Result<ResetInstituteAdminPasswordDto>> ResetPasswordAsync(
+        Guid tenantId, Guid userId, CancellationToken ct = default)
+    {
+        if (tenantId == TenantContext.SystemTenantId)
+            return Result<ResetInstituteAdminPasswordDto>.Failure("Invalid tenant.");
+
+        var tenant = await _tenants.GetAsync(tenantId, ct);
+        if (tenant is null)
+            return Result<ResetInstituteAdminPasswordDto>.Failure("Tenant not found.");
+
+        var user = await _db.Users
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(
+                u => u.Id == userId && u.TenantId == tenantId && u.Role == Roles.InstituteAdmin,
+                ct);
+
+        if (user is null)
+            return Result<ResetInstituteAdminPasswordDto>.Failure("Institute admin not found on this tenant.");
+
+        if (!user.IsActive)
+            return Result<ResetInstituteAdminPasswordDto>.Failure("This institute admin account is inactive.");
+
+        var tempPassword = GenerateTempPassword();
+        user.PasswordHash = _hasher.Hash(tempPassword);
+        user.MustChangePassword = true;
+        await _db.SaveChangesAsync(ct);
+
+        return Result<ResetInstituteAdminPasswordDto>.Success(new ResetInstituteAdminPasswordDto(
+            user.Id, user.FullName, user.Email, tempPassword));
+    }
+
     private static string GenerateTempPassword(int length = 12)
     {
         var chars = new char[length];

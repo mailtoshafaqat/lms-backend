@@ -36,32 +36,38 @@ public sealed class FlashcardAdminService : IFlashcardAdminService
 
     public async Task<FlashcardDto> AddCardAsync(Guid topicId, CreateFlashcardRequest req, CancellationToken ct = default)
     {
-        var deck = await _db.Decks
-            .Include(d => d.Cards)
-            .FirstOrDefaultAsync(d => d.TopicId == topicId, ct);
+        var deckId = await _db.Decks
+            .Where(d => d.TopicId == topicId)
+            .Select(d => d.Id)
+            .FirstOrDefaultAsync(ct);
 
-        if (deck is null)
+        if (deckId == Guid.Empty)
         {
-            deck = new FlashcardDeck
+            var deck = new FlashcardDeck
             {
                 TenantId = _tenant.TenantId,
                 TopicId = topicId,
                 Title = "Key Concepts"
             };
             _db.Decks.Add(deck);
+            await _db.SaveChangesAsync(ct);
+            deckId = deck.Id;
         }
 
-        var order = deck.Cards.Count == 0 ? 1 : deck.Cards.Max(c => c.Order) + 1;
+        var maxOrder = await _db.Cards
+            .Where(c => c.DeckId == deckId)
+            .Select(c => (int?)c.Order)
+            .MaxAsync(ct) ?? 0;
 
         var card = new Flashcard
         {
             TenantId = _tenant.TenantId,
+            DeckId = deckId,
             Front = req.Front.Trim(),
             Back = req.Back.Trim(),
-            Order = order
+            Order = maxOrder + 1
         };
-        deck.Cards.Add(card);
-
+        _db.Cards.Add(card);
         await _db.SaveChangesAsync(ct);
         return new FlashcardDto(card.Id, card.Front, card.Back, card.Order);
     }

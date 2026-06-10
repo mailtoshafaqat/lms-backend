@@ -58,13 +58,16 @@ public sealed class LandingPageService : ILandingPageService
     {
         ValidateSections(request.Sections);
 
-        var page = await GetOrCreatePageAsync(ct);
-        _db.PageSections.RemoveRange(page.Sections);
+        var page = await GetOrCreatePageAsync(ct, includeSections: false);
+
+        await _db.PageSections
+            .Where(s => s.LandingPageId == page.Id)
+            .ExecuteDeleteAsync(ct);
 
         var order = 0;
         foreach (var dto in request.Sections.OrderBy(s => s.SortOrder))
         {
-            page.Sections.Add(new PageSection
+            _db.PageSections.Add(new PageSection
             {
                 LandingPageId = page.Id,
                 SectionType = dto.SectionType.Trim(),
@@ -78,11 +81,13 @@ public sealed class LandingPageService : ILandingPageService
         return await GetAdminAsync(ct);
     }
 
-    private async Task<LandingPage> GetOrCreatePageAsync(CancellationToken ct)
+    private async Task<LandingPage> GetOrCreatePageAsync(CancellationToken ct, bool includeSections = true)
     {
-        var page = await _db.LandingPages
-            .Include(p => p.Sections)
-            .FirstOrDefaultAsync(ct);
+        IQueryable<LandingPage> query = _db.LandingPages;
+        if (includeSections)
+            query = query.Include(p => p.Sections);
+
+        var page = await query.FirstOrDefaultAsync(ct);
 
         if (page is null)
         {

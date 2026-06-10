@@ -32,6 +32,24 @@ public sealed class CourseAdminService : ICourseAdminService
         return new BundleDto(bundle.Id, bundle.Title, 0, bundle.Price);
     }
 
+    public async Task<Result<BundleDto>> UpdateBundleAsync(
+        Guid bundleId, UpdateBundleRequest req, CancellationToken ct = default)
+    {
+        var bundle = await _db.Bundles.FirstOrDefaultAsync(b => b.Id == bundleId, ct);
+        if (bundle is null)
+            return Result<BundleDto>.Failure("Bundle not found.");
+        if (req.Price < 0)
+            return Result<BundleDto>.Failure("Price cannot be negative.");
+
+        bundle.Price = req.Price;
+        if (req.ValidityDays is > 0)
+            bundle.ValidityDays = req.ValidityDays.Value;
+
+        await _db.SaveChangesAsync(ct);
+        var subjectCount = await _db.Subjects.CountAsync(s => s.BundleId == bundleId, ct);
+        return Result<BundleDto>.Success(new BundleDto(bundle.Id, bundle.Title, subjectCount, bundle.Price));
+    }
+
     public async Task<Result<SubjectDto>> CreateSubjectAsync(Guid bundleId, CreateSubjectRequest req, CancellationToken ct = default)
     {
         if (!await _db.Bundles.AnyAsync(b => b.Id == bundleId, ct))

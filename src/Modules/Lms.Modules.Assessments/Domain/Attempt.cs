@@ -14,5 +14,12 @@ public sealed class Attempt : TenantEntity
     /// <summary>JSON map of questionId -> selectedKey.</summary>
     public string AnswersJson { get; set; } = "{}";
 
-    public DateTime SubmittedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? StartedAt { get; set; }
+
+    /// <summary>When the attempt timer ends (UTC). Null if no time limit.</summary>
+    public DateTime? ExpiresAtUtc { get; set; }
+
+    public DateTime? SubmittedAt { get; set; }
+
+    public bool IsInProgress => SubmittedAt is null;
 }
