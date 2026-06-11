@@ -33,5 +33,6 @@ public sealed class PlatformModule : IModule
         services.AddScoped<IEmailSender, SmtpEmailSender>();
         services.AddScoped<IBrandedEmailRenderer, BrandedEmailRenderer>();
         services.AddScoped<ISyllabusMentorGate, SyllabusMentorGate>();
+        services.AddScoped<IRequestIncidentService, RequestIncidentService>();
     }
 }

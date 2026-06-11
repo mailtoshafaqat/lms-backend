@@ -99,9 +99,67 @@ public sealed class CourseAdminService : ICourseAdminService
         };
         _db.Topics.Add(topic);
         await _db.SaveChangesAsync(ct);
-        return Result<TopicDto>.Success(
-            new TopicDto(topic.Id, topic.Title, topic.Order, topic.HasVideo, topic.McqCount, topic.FlashcardCount));
+        return Result<TopicDto>.Success(ToTopicDto(topic));
     }
+
+    public async Task<Result<TopicDto>> GetTopicAsync(Guid topicId, CancellationToken ct = default)
+    {
+        var topic = await _db.Topics.AsNoTracking().FirstOrDefaultAsync(t => t.Id == topicId, ct);
+        return topic is null
+            ? Result<TopicDto>.Failure("Topic not found.")
+            : Result<TopicDto>.Success(ToTopicDto(topic));
+    }
+
+    public async Task<Result<SubjectDto>> UpdateSubjectAsync(
+        Guid subjectId, UpdateSubjectRequest req, CancellationToken ct = default)
+    {
+        var title = req.Title.Trim();
+        if (string.IsNullOrWhiteSpace(title))
+            return Result<SubjectDto>.Failure("Subject title is required.");
+
+        var subject = await _db.Subjects.FirstOrDefaultAsync(s => s.Id == subjectId, ct);
+        if (subject is null)
+            return Result<SubjectDto>.Failure("Subject not found.");
+
+        subject.Title = title;
+        await _db.SaveChangesAsync(ct);
+        var unitCount = await _db.Units.CountAsync(u => u.SubjectId == subjectId, ct);
+        return Result<SubjectDto>.Success(new SubjectDto(subject.Id, subject.Title, subject.Order, unitCount));
+    }
+
+    public async Task<Result<UnitDto>> UpdateUnitAsync(Guid unitId, UpdateUnitRequest req, CancellationToken ct = default)
+    {
+        var title = req.Title.Trim();
+        if (string.IsNullOrWhiteSpace(title))
+            return Result<UnitDto>.Failure("Unit title is required.");
+
+        var unit = await _db.Units.FirstOrDefaultAsync(u => u.Id == unitId, ct);
+        if (unit is null)
+            return Result<UnitDto>.Failure("Unit not found.");
+
+        unit.Title = title;
+        await _db.SaveChangesAsync(ct);
+        var topicCount = await _db.Topics.CountAsync(t => t.UnitId == unitId, ct);
+        return Result<UnitDto>.Success(new UnitDto(unit.Id, unit.Title, unit.Order, topicCount));
+    }
+
+    public async Task<Result<TopicDto>> UpdateTopicAsync(Guid topicId, UpdateTopicRequest req, CancellationToken ct = default)
+    {
+        var title = req.Title.Trim();
+        if (string.IsNullOrWhiteSpace(title))
+            return Result<TopicDto>.Failure("Topic title is required.");
+
+        var topic = await _db.Topics.FirstOrDefaultAsync(t => t.Id == topicId, ct);
+        if (topic is null)
+            return Result<TopicDto>.Failure("Topic not found.");
+
+        topic.Title = title;
+        await _db.SaveChangesAsync(ct);
+        return Result<TopicDto>.Success(ToTopicDto(topic));
+    }
+
+    private static TopicDto ToTopicDto(Topic topic) =>
+        new(topic.Id, topic.Title, topic.Order, topic.HasVideo, topic.McqCount, topic.FlashcardCount);
 
     public async Task<bool> DeleteBundleAsync(Guid id, CancellationToken ct = default) =>
         await DeleteAsync(_db.Bundles, id, ct);

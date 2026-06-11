@@ -14,6 +14,12 @@ public sealed class Attempt : TenantEntity
     /// <summary>JSON map of questionId -> selectedKey.</summary>
     public string AnswersJson { get; set; } = "{}";
 
+    /// <summary>JSON array of question ids for assembled quizzes (unit / PYQ tests).</summary>
+    public string? QuestionIdsJson { get; set; }
+
+    /// <summary>JSON array of question ids flagged for review.</summary>
+    public string FlaggedQuestionIdsJson { get; set; } = "[]";
+
     public DateTime? StartedAt { get; set; }
 
     /// <summary>When the attempt timer ends (UTC). Null if no time limit.</summary>

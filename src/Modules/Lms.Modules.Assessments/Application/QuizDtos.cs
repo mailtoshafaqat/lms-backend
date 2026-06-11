@@ -11,7 +11,9 @@ public sealed record ActiveAttemptDto(
 /// <summary>Student-facing quiz payload with optional scheduling metadata.</summary>
 public sealed record QuizDto(
     Guid Id,
-    Guid TopicId,
+    Guid? TopicId,
+    Guid? UnitId,
+    string Type,
     string Title,
     int? TimeLimitMinutes,
     DateTime? AvailableFromUtc,
@@ -19,20 +21,25 @@ public sealed record QuizDto(
     string AvailabilityStatus,
     string ResultVisibility,
     bool ShowExplanations,
+    string? DifficultyFilter,
+    IReadOnlyList<string> AvailableDifficulties,
     ActiveAttemptDto? ActiveAttempt,
-    IReadOnlyList<QuizQuestionDto> Questions);
+    IReadOnlyList<QuizQuestionDto> Questions,
+    IReadOnlyList<Guid> FlaggedQuestionIds);
 
 public sealed record SubmitAnswer(Guid QuestionId, string SelectedKey);
 
 public sealed record SubmitAttemptRequest(
     IReadOnlyList<SubmitAnswer> Answers,
-    Guid? AttemptId);
+    Guid? AttemptId,
+    IReadOnlyList<Guid>? FlaggedQuestionIds = null);
 
 public sealed record StartAttemptResultDto(
     Guid AttemptId,
     DateTime StartedAtUtc,
     DateTime? ExpiresAtUtc,
-    IReadOnlyList<QuizQuestionDto> Questions);
+    IReadOnlyList<QuizQuestionDto> Questions,
+    IReadOnlyList<Guid> FlaggedQuestionIds);
 
 public sealed record QuestionResultDto(
     Guid QuestionId,

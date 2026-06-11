@@ -10,4 +10,10 @@ public interface IEnrollmentService
     Task<Result<EnrollmentDto>> ProvisionEnrollmentAsync(Guid userId, Guid bundleId, CancellationToken ct = default);
 
     Task<IReadOnlyList<EnrollmentDto>> GetMyEnrollmentsAsync(Guid userId, CancellationToken ct = default);
+
+    Task<IReadOnlyList<EnrollmentDto>> GetEnrollmentsForUserAsync(
+        Guid userId, CancellationToken ct = default);
+
+    Task<Result<EnrollmentDto>> ExtendEnrollmentAsync(
+        Guid userId, Guid bundleId, DateTime expiresAt, CancellationToken ct = default);
 }

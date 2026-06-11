@@ -7,6 +7,9 @@ public sealed record EnrollmentSummary(Guid BundleId, string BundleTitle, DateTi
 public interface IEnrollmentWriter
 {
     Task<EnrollmentSummary?> EnrollAsync(Guid userId, Guid bundleId, CancellationToken ct = default);
+
+    Task<EnrollmentSummary?> ExtendEnrollmentAsync(
+        Guid userId, Guid bundleId, DateTime expiresAt, CancellationToken ct = default);
 }
 
 /// <summary>Cross-module read contract for a user's current course access. Implemented by the
@@ -14,6 +17,9 @@ public interface IEnrollmentWriter
 public interface IEnrollmentReader
 {
     Task<IReadOnlyList<Guid>> GetActiveBundleIdsAsync(Guid userId, CancellationToken ct = default);
+
+    Task<IReadOnlyList<EnrollmentSummary>> GetActiveEnrollmentsAsync(
+        Guid userId, CancellationToken ct = default);
 
     Task<IReadOnlyList<Guid>> GetActiveUserIdsForBundleAsync(Guid bundleId, CancellationToken ct = default);
 }

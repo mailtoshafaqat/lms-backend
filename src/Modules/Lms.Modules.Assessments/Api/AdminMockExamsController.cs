@@ -24,11 +24,17 @@ public sealed class AdminMockExamsController : ControllerBase
     }
 
     [HttpGet("subjects/{subjectId:guid}/mock-exams")]
-    public async Task<IActionResult> List(Guid subjectId, CancellationToken ct)
+    public async Task<IActionResult> List(
+        Guid subjectId, [FromQuery] bool includeArchived = false, CancellationToken ct = default)
     {
         if (!await CanManageSubject(subjectId, ct)) return Forbid();
-        return Ok(await _mockExams.ListForSubjectAsync(subjectId, ct));
+        return Ok(await _mockExams.ListForSubjectAsync(subjectId, includeArchived, ct));
     }
+
+    [HttpGet("bundles/{bundleId:guid}/mock-exams")]
+    public async Task<IActionResult> ListForBundle(
+        Guid bundleId, [FromQuery] bool includeArchived = false, CancellationToken ct = default) =>
+        Ok(await _mockExams.ListForBundleAsync(bundleId, includeArchived, ct));
 
     [HttpGet("mock-exams/{id:guid}")]
     public async Task<IActionResult> Get(Guid id, CancellationToken ct)
@@ -66,6 +72,29 @@ public sealed class AdminMockExamsController : ControllerBase
         if (!await CanManageSubject(existing.SubjectId, ct)) return Forbid();
 
         var result = await _mockExams.PublishResultsAsync(id, ct);
+        return result.Succeeded ? Ok(result.Value) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpPut("mock-exams/{id:guid}/archive")]
+    public async Task<IActionResult> SetArchived(
+        Guid id, [FromBody] SetMockExamArchivedRequest req, CancellationToken ct)
+    {
+        var existing = await _mockExams.GetAsync(id, ct);
+        if (existing is null) return NotFound();
+        if (!await CanManageSubject(existing.SubjectId, ct)) return Forbid();
+
+        var result = await _mockExams.SetArchivedAsync(id, req.IsArchived, ct);
+        return result.Succeeded ? Ok(result.Value) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpGet("mock-exams/{id:guid}/leaderboard")]
+    public async Task<IActionResult> Leaderboard(Guid id, [FromQuery] int take = 100, CancellationToken ct = default)
+    {
+        var existing = await _mockExams.GetAsync(id, ct);
+        if (existing is null) return NotFound();
+        if (!await CanManageSubject(existing.SubjectId, ct)) return Forbid();
+
+        var result = await _mockExams.GetLeaderboardAsync(id, _current.UserId, take, ct);
         return result.Succeeded ? Ok(result.Value) : BadRequest(new { error = result.Error });
     }
 

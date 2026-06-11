@@ -10,6 +10,11 @@ public interface ICourseAdminService
     Task<Result<UnitDto>> CreateUnitAsync(Guid subjectId, CreateUnitRequest req, CancellationToken ct = default);
     Task<Result<TopicDto>> CreateTopicAsync(Guid unitId, CreateTopicRequest req, CancellationToken ct = default);
 
+    Task<Result<TopicDto>> GetTopicAsync(Guid topicId, CancellationToken ct = default);
+    Task<Result<SubjectDto>> UpdateSubjectAsync(Guid subjectId, UpdateSubjectRequest req, CancellationToken ct = default);
+    Task<Result<UnitDto>> UpdateUnitAsync(Guid unitId, UpdateUnitRequest req, CancellationToken ct = default);
+    Task<Result<TopicDto>> UpdateTopicAsync(Guid topicId, UpdateTopicRequest req, CancellationToken ct = default);
+
     Task<bool> DeleteBundleAsync(Guid id, CancellationToken ct = default);
     Task<bool> DeleteSubjectAsync(Guid id, CancellationToken ct = default);
     Task<bool> DeleteUnitAsync(Guid id, CancellationToken ct = default);

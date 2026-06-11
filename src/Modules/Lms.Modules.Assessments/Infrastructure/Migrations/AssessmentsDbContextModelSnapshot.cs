@@ -39,6 +39,13 @@ namespace Lms.Modules.Assessments.Infrastructure.Migrations
                     b.Property<DateTime?>("ExpiresAtUtc")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("FlaggedQuestionIdsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("QuestionIdsJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<Guid>("QuizId")
                         .HasColumnType("uniqueidentifier");
 
@@ -88,17 +95,36 @@ namespace Lms.Modules.Assessments.Infrastructure.Migrations
                     b.Property<bool>("BatchNotifySent")
                         .HasColumnType("bit");
 
+                    b.Property<Guid>("BundleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BundleTitle")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsPublished")
                         .HasColumnType("bit");
 
+                    b.Property<decimal>("MarksPerCorrect")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
                     b.Property<bool>("NotifyTeachersOnBatchComplete")
                         .HasColumnType("bit");
+
+                    b.Property<decimal>("PenaltyPerWrong")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
 
                     b.Property<int>("ResultVisibility")
                         .HasColumnType("int");
@@ -133,6 +159,8 @@ namespace Lms.Modules.Assessments.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("BundleId");
+
                     b.HasIndex("SubjectId");
 
                     b.ToTable("MockExams", "assessments");
@@ -148,11 +176,18 @@ namespace Lms.Modules.Assessments.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("CorrectCount")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("ExpiresAtUtc")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("FlaggedQuestionIdsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid>("MockExamId")
                         .HasColumnType("uniqueidentifier");
@@ -161,8 +196,9 @@ namespace Lms.Modules.Assessments.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("Score")
-                        .HasColumnType("int");
+                    b.Property<decimal>("Score")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
 
                     b.Property<DateTime?>("StartedAt")
                         .HasColumnType("datetime2");
@@ -182,11 +218,50 @@ namespace Lms.Modules.Assessments.Infrastructure.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int>("WrongCount")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("UserId", "MockExamId");
 
                     b.ToTable("MockExamAttempts", "assessments");
+                });
+
+            modelBuilder.Entity("Lms.Modules.Assessments.Domain.MockExamSection", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("MockExamId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("SectionTimeLimitMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MockExamId");
+
+                    b.ToTable("MockExamSections", "assessments");
                 });
 
             modelBuilder.Entity("Lms.Modules.Assessments.Domain.MockExamTopic", b =>
@@ -207,6 +282,9 @@ namespace Lms.Modules.Assessments.Infrastructure.Migrations
                     b.Property<int>("QuestionCount")
                         .HasColumnType("int");
 
+                    b.Property<Guid>("SectionId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
 
@@ -225,6 +303,8 @@ namespace Lms.Modules.Assessments.Infrastructure.Migrations
 
                     b.HasIndex("MockExamId");
 
+                    b.HasIndex("SectionId");
+
                     b.ToTable("MockExamTopics", "assessments");
                 });
 
@@ -240,6 +320,9 @@ namespace Lms.Modules.Assessments.Infrastructure.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int>("Difficulty")
+                        .HasColumnType("int");
 
                     b.Property<string>("Explanation")
                         .HasColumnType("nvarchar(max)");
@@ -302,6 +385,9 @@ namespace Lms.Modules.Assessments.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("DifficultyFilter")
+                        .HasColumnType("int");
+
                     b.Property<bool>("NotifyTeachersOnBatchComplete")
                         .HasColumnType("bit");
 
@@ -325,11 +411,14 @@ namespace Lms.Modules.Assessments.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
-                    b.Property<Guid>("TopicId")
+                    b.Property<Guid?>("TopicId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("Type")
                         .HasColumnType("int");
+
+                    b.Property<Guid?>("UnitId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -338,7 +427,20 @@ namespace Lms.Modules.Assessments.Infrastructure.Migrations
 
                     b.HasIndex("TopicId");
 
+                    b.HasIndex("UnitId", "Type");
+
                     b.ToTable("Quizzes", "assessments");
+                });
+
+            modelBuilder.Entity("Lms.Modules.Assessments.Domain.MockExamSection", b =>
+                {
+                    b.HasOne("Lms.Modules.Assessments.Domain.MockExam", "MockExam")
+                        .WithMany("Sections")
+                        .HasForeignKey("MockExamId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("MockExam");
                 });
 
             modelBuilder.Entity("Lms.Modules.Assessments.Domain.MockExamTopic", b =>
@@ -349,7 +451,15 @@ namespace Lms.Modules.Assessments.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Lms.Modules.Assessments.Domain.MockExamSection", "Section")
+                        .WithMany("Topics")
+                        .HasForeignKey("SectionId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
                     b.Navigation("MockExam");
+
+                    b.Navigation("Section");
                 });
 
             modelBuilder.Entity("Lms.Modules.Assessments.Domain.Question", b =>
@@ -364,6 +474,13 @@ namespace Lms.Modules.Assessments.Infrastructure.Migrations
                 });
 
             modelBuilder.Entity("Lms.Modules.Assessments.Domain.MockExam", b =>
+                {
+                    b.Navigation("Sections");
+
+                    b.Navigation("Topics");
+                });
+
+            modelBuilder.Entity("Lms.Modules.Assessments.Domain.MockExamSection", b =>
                 {
                     b.Navigation("Topics");
                 });

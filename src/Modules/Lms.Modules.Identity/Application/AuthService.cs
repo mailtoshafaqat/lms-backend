@@ -93,7 +93,7 @@ public sealed class AuthService : IAuthService
             return Result<AuthResponse>.Failure("Invalid email or password.");
         }
 
-        if (user.Role != Roles.SuperAdmin)
+        if (!Roles.IsPlatformStaff(user.Role))
         {
             var features = await _tenantFeatures.GetAsync(user.TenantId, ct);
             if (features is null)
@@ -141,7 +141,7 @@ public sealed class AuthService : IAuthService
 
     private async Task<TenantFeaturesDto?> MapTenantAsync(User user, CancellationToken ct)
     {
-        if (user.Role == Roles.SuperAdmin) return null;
+        if (Roles.IsPlatformStaff(user.Role)) return null;
 
         var f = await _tenantFeatures.GetAsync(user.TenantId, ct);
         if (f is null) return null;

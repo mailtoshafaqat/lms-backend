@@ -19,16 +19,25 @@ public sealed class QuizzesController : ControllerBase
     }
 
     [HttpGet("topics/{topicId:guid}/quiz")]
-    public async Task<IActionResult> GetByTopic(Guid topicId, CancellationToken ct)
+    public async Task<IActionResult> GetByTopic(
+        Guid topicId, [FromQuery] string? difficulty, CancellationToken ct)
     {
-        var quiz = await _quizzes.GetByTopicAsync(topicId, _currentUser.UserId, ct);
+        var quiz = await _quizzes.GetByTopicAsync(topicId, _currentUser.UserId, difficulty, ct);
+        return quiz is null ? NotFound() : Ok(quiz);
+    }
+
+    [HttpGet("units/{unitId:guid}/quizzes/{quizType}")]
+    public async Task<IActionResult> GetByUnit(
+        Guid unitId, string quizType, [FromQuery] string? difficulty, CancellationToken ct)
+    {
+        var quiz = await _quizzes.GetByUnitAsync(unitId, quizType, _currentUser.UserId, difficulty, ct);
         return quiz is null ? NotFound() : Ok(quiz);
     }
 
     [HttpGet("quizzes/{quizId:guid}")]
-    public async Task<IActionResult> Get(Guid quizId, CancellationToken ct)
+    public async Task<IActionResult> Get(Guid quizId, [FromQuery] string? difficulty, CancellationToken ct)
     {
-        var quiz = await _quizzes.GetAsync(quizId, _currentUser.UserId, ct);
+        var quiz = await _quizzes.GetAsync(quizId, _currentUser.UserId, difficulty, ct);
         return quiz is null ? NotFound() : Ok(quiz);
     }
 

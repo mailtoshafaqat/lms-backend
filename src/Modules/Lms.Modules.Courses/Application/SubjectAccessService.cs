@@ -5,6 +5,7 @@ using Lms.Shared.Common;
 using Lms.Shared.Courses;
 using Lms.Shared.Tenancy;
 using Lms.Shared.Users;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace Lms.Modules.Courses.Application;
@@ -14,16 +15,25 @@ public sealed class SubjectAccessService : ISubjectAccessService
     private readonly CoursesDbContext _db;
     private readonly ITenantContext _tenant;
     private readonly IInstituteUserReader _users;
+    private readonly IHttpContextAccessor _http;
 
-    public SubjectAccessService(CoursesDbContext db, ITenantContext tenant, IInstituteUserReader users)
+    public SubjectAccessService(
+        CoursesDbContext db,
+        ITenantContext tenant,
+        IInstituteUserReader users,
+        IHttpContextAccessor http)
     {
         _db = db;
         _tenant = tenant;
         _users = users;
+        _http = http;
     }
 
-    public bool HasInstituteWideAccess(string? role) =>
-        role is Roles.SuperAdmin or Roles.InstituteAdmin;
+    public bool HasInstituteWideAccess(string? role)
+    {
+        if (role is Roles.SuperAdmin or Roles.InstituteAdmin) return true;
+        return _http.HttpContext?.User.HasInstituteWideAccess() ?? false;
+    }
 
     public async Task<bool> CanManageSubjectAsync(
         Guid userId, string role, Guid subjectId, CancellationToken ct = default)

@@ -253,8 +253,10 @@ public sealed class LiveClassService : ILiveClassService
             return Result<RecordJoinResultDto>.Failure("Live class not found.");
 
         var state = ComputeState(liveClass);
-        if (state is not LiveClassState.Live and not LiveClassState.Upcoming)
-            return Result<RecordJoinResultDto>.Failure("This class is not open for joining.");
+        if (state != LiveClassState.Live)
+            return state == LiveClassState.Upcoming
+                ? Result<RecordJoinResultDto>.Failure("This class has not started yet. Join when it is live.")
+                : Result<RecordJoinResultDto>.Failure("This class is not open for joining.");
 
         var bundleIds = await _enrollments.GetActiveBundleIdsAsync(userId, ct);
         if (!bundleIds.Contains(liveClass.BundleId))

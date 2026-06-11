@@ -7,3 +7,5 @@ public sealed record EnrollmentDto(
     DateTime EnrolledAt,
     DateTime ExpiresAt,
     bool IsActive);
+
+public sealed record ExtendEnrollmentRequest(DateTime ExpiresAt);

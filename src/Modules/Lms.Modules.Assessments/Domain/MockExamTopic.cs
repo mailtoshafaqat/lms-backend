@@ -8,6 +8,9 @@ public sealed class MockExamTopic : TenantEntity
     public Guid MockExamId { get; set; }
     public MockExam? MockExam { get; set; }
 
+    public Guid SectionId { get; set; }
+    public MockExamSection? Section { get; set; }
+
     public Guid TopicId { get; set; }
     public string TopicTitle { get; set; } = string.Empty;
 

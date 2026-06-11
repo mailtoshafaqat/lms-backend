@@ -44,8 +44,9 @@ public sealed class QuizBatchNotifier
     public async Task TryNotifyQuizBatchCompleteAsync(Quiz quiz, CancellationToken ct = default)
     {
         if (!quiz.NotifyTeachersOnBatchComplete || quiz.BatchNotifySent) return;
+        if (quiz.TopicId is null) return;
 
-        var topicScope = await _scope.GetTopicScopeAsync(quiz.TopicId, ct);
+        var topicScope = await _scope.GetTopicScopeAsync(quiz.TopicId.Value, ct);
         if (topicScope is null) return;
 
         var enrolled = await _enrollments.GetActiveUserIdsForBundleAsync(topicScope.BundleId, ct);

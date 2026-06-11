@@ -19,6 +19,16 @@ public sealed class EnrollmentWriter : IEnrollmentWriter
         var e = result.Value;
         return new EnrollmentSummary(e.BundleId, e.BundleTitle, e.ExpiresAt);
     }
+
+    public async Task<EnrollmentSummary?> ExtendEnrollmentAsync(
+        Guid userId, Guid bundleId, DateTime expiresAt, CancellationToken ct = default)
+    {
+        var result = await _enrollments.ExtendEnrollmentAsync(userId, bundleId, expiresAt, ct);
+        if (!result.Succeeded || result.Value is null) return null;
+
+        var e = result.Value;
+        return new EnrollmentSummary(e.BundleId, e.BundleTitle, e.ExpiresAt);
+    }
 }
 
 /// <summary>Adapts enrollment storage to the shared cross-module read contract.</summary>
@@ -35,6 +45,17 @@ public sealed class EnrollmentReader : IEnrollmentReader
             .Where(e => e.UserId == userId && e.ExpiresAt > now)
             .Select(e => e.BundleId)
             .Distinct()
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<EnrollmentSummary>> GetActiveEnrollmentsAsync(
+        Guid userId, CancellationToken ct = default)
+    {
+        var now = DateTime.UtcNow;
+        return await _db.Enrollments
+            .Where(e => e.UserId == userId && e.ExpiresAt > now)
+            .OrderByDescending(e => e.ExpiresAt)
+            .Select(e => new EnrollmentSummary(e.BundleId, e.BundleTitle, e.ExpiresAt))
             .ToListAsync(ct);
     }
 

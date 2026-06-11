@@ -22,4 +22,9 @@ public interface IQuizAdminService
 
     Task<Result<McqImportResultDto>> ImportMcqAsync(
         Guid topicId, McqImportRequest req, CancellationToken ct = default);
+
+    Task<AdminUnitQuizDto?> GetUnitQuizAsync(Guid unitId, string quizType, CancellationToken ct = default);
+
+    Task<Result<AdminUnitQuizDto>> UpdateUnitQuizSettingsAsync(
+        Guid unitId, string quizType, UpdateQuizSettingsRequest req, CancellationToken ct = default);
 }

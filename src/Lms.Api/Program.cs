@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
 using Lms.Modules.Assessments;
@@ -23,7 +24,9 @@ using Lms.Modules.SyllabusMentor.Application;
 using Lms.Modules.SyllabusMentor.Infrastructure;
 using Lms.Modules.QnA;
 using Lms.Modules.QnA.Infrastructure;
+using Lms.Api.Filters;
 using Lms.Api.Middleware;
+using Lms.Api.Seeders;
 using Lms.Shared;
 using Lms.Shared.Auth;
 using Lms.Shared.Modules;
@@ -54,7 +57,8 @@ var moduleAssemblies = builder.Services.RegisterModules(
 
 // Controllers from the host + every module assembly (plug-and-play).
 var mvc = builder.Services.AddControllers()
-    .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+    .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()))
+    .AddMvcOptions(o => o.Filters.Add<ErrorTraceResultFilter>());
 foreach (var assembly in moduleAssemblies)
     mvc.AddApplicationPart(assembly);
 
@@ -64,6 +68,7 @@ builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        options.MapInboundClaims = true;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -72,12 +77,15 @@ builder.Services
             ValidateIssuerSigningKey = true,
             ValidIssuer = jwt.Issuer,
             ValidAudience = jwt.Audience,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SigningKey))
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SigningKey)),
+            NameClaimType = ClaimTypes.NameIdentifier,
+            RoleClaimType = ClaimTypes.Role
         };
     });
 
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy("SuperAdmin", p => p.RequireRole(Roles.SuperAdmin))
+    .AddPolicy("PlatformStaff", p => p.RequireRole(Roles.SuperAdmin, Roles.Support))
     .AddPolicy("InstituteAdmin", p => p.RequireRole(Roles.SuperAdmin, Roles.InstituteAdmin))
     .AddPolicy("Teacher", p => p.RequireRole(Roles.SuperAdmin, Roles.InstituteAdmin, Roles.Teacher));
 
@@ -150,12 +158,17 @@ if (app.Environment.IsDevelopment())
     await assessmentsDb.Database.MigrateAsync();
     await AssessmentSeeder.SeedAsync(assessmentsDb, topics);
 
+    var enrollmentDb = sp.GetRequiredService<EnrollmentDbContext>();
+    await enrollmentDb.Database.MigrateAsync();
+    await MockExamSeeder.SeedAsync(
+        assessmentsDb,
+        coursesDb,
+        identityDb,
+        enrollmentDb);
+
     var flashcardsDb = sp.GetRequiredService<FlashcardsDbContext>();
     await flashcardsDb.Database.MigrateAsync();
     await FlashcardSeeder.SeedAsync(flashcardsDb, topics);
-
-    var enrollmentDb = sp.GetRequiredService<EnrollmentDbContext>();
-    await enrollmentDb.Database.MigrateAsync();
 
     var progressDb = sp.GetRequiredService<ProgressDbContext>();
     await progressDb.Database.MigrateAsync();
@@ -194,7 +207,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("frontend");
+app.UseMiddleware<TraceIdMiddleware>();
 app.UseMiddleware<TenantResolutionMiddleware>();
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

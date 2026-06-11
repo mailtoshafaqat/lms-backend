@@ -2,6 +2,7 @@ using System.Text.Json;
 using Lms.Modules.Assessments.Domain;
 using Lms.Modules.Assessments.Infrastructure;
 using Lms.Shared.Common;
+using Lms.Shared.Courses;
 using Lms.Shared.Tenancy;
 using Microsoft.EntityFrameworkCore;
 using JsonSerializer = System.Text.Json.JsonSerializer;
@@ -13,26 +14,29 @@ public sealed class QuizAdminService : IQuizAdminService
     private readonly AssessmentsDbContext _db;
     private readonly ITenantContext _tenant;
     private readonly ITenantFeaturesProvider _features;
+    private readonly ICourseScopeReader _scope;
 
     public QuizAdminService(
         AssessmentsDbContext db,
         ITenantContext tenant,
-        ITenantFeaturesProvider features)
+        ITenantFeaturesProvider features,
+        ICourseScopeReader scope)
     {
         _db = db;
         _tenant = tenant;
         _features = features;
+        _scope = scope;
     }
 
     public async Task<AdminQuizDto?> GetAdminQuizAsync(Guid topicId, CancellationToken ct = default)
     {
         var quiz = await _db.Quizzes
             .Include(q => q.Questions)
-            .FirstOrDefaultAsync(q => q.TopicId == topicId, ct);
+            .FirstOrDefaultAsync(q => q.TopicId == topicId && q.Type == QuizType.DailyPracticeTest, ct);
 
         if (quiz is null) return null;
 
-        return MapAdminQuiz(quiz);
+        return await MapAdminQuizAsync(quiz, ct);
     }
 
     public async Task<Result<AdminQuestionDto>> AddQuestionAsync(Guid topicId, CreateQuestionRequest req, CancellationToken ct = default)
@@ -43,7 +47,7 @@ public sealed class QuizAdminService : IQuizAdminService
             return Result<AdminQuestionDto>.Failure("CorrectKey must be a valid option index.");
 
         var quizId = await _db.Quizzes
-            .Where(q => q.TopicId == topicId)
+            .Where(q => q.TopicId == topicId && q.Type == QuizType.DailyPracticeTest)
             .Select(q => q.Id)
             .FirstOrDefaultAsync(ct);
 
@@ -66,6 +70,7 @@ public sealed class QuizAdminService : IQuizAdminService
             .Select(q => (int?)q.Order)
             .MaxAsync(ct) ?? 0;
 
+        var difficulty = QuizQuestionAssembler.ParseDifficulty(req.Difficulty) ?? QuestionDifficulty.Medium;
         var question = new Question
         {
             TenantId = _tenant.TenantId,
@@ -75,6 +80,7 @@ public sealed class QuizAdminService : IQuizAdminService
             CorrectKey = req.CorrectKey,
             Explanation = string.IsNullOrWhiteSpace(req.Explanation) ? null : req.Explanation.Trim(),
             Order = maxOrder + 1,
+            Difficulty = difficulty,
             IsPyq = req.IsPyq,
             PyqYear = req.IsPyq ? req.PyqYear : null,
             PyqExam = req.IsPyq && !string.IsNullOrWhiteSpace(req.PyqExam) ? req.PyqExam.Trim() : null
@@ -111,6 +117,13 @@ public sealed class QuizAdminService : IQuizAdminService
         question.IsPyq = req.IsPyq;
         question.PyqYear = req.IsPyq ? req.PyqYear : null;
         question.PyqExam = req.IsPyq && !string.IsNullOrWhiteSpace(req.PyqExam) ? req.PyqExam.Trim() : null;
+        if (req.Difficulty is not null)
+        {
+            var parsed = QuizQuestionAssembler.ParseDifficulty(req.Difficulty);
+            if (parsed is null)
+                return Result<AdminQuestionDto>.Failure("Invalid difficulty. Use Easy, Medium, or Hard.");
+            question.Difficulty = parsed.Value;
+        }
         await _db.SaveChangesAsync(ct);
         return Result<AdminQuestionDto>.Success(ToDto(question));
     }
@@ -119,7 +132,7 @@ public sealed class QuizAdminService : IQuizAdminService
     {
         var quiz = await _db.Quizzes
             .Include(q => q.Questions)
-            .FirstOrDefaultAsync(q => q.TopicId == topicId, ct);
+            .FirstOrDefaultAsync(q => q.TopicId == topicId && q.Type == QuizType.DailyPracticeTest, ct);
 
         if (quiz is null) return null;
 
@@ -149,7 +162,7 @@ public sealed class QuizAdminService : IQuizAdminService
             .ThenByDescending(x => x.AttemptCount)
             .ToList();
 
-        return new QuizAnalyticsDto(quiz.Id, quiz.TopicId, quiz.Title, attempts.Count, questionStats);
+        return new QuizAnalyticsDto(quiz.Id, quiz.TopicId!.Value, quiz.Title, attempts.Count, questionStats);
     }
 
     private static bool TryGetSelectedKey(string answersJson, Guid questionId, out string? selected)
@@ -170,7 +183,8 @@ public sealed class QuizAdminService : IQuizAdminService
     public async Task<Result<bool>> UpdateQuizTitleAsync(
         Guid topicId, UpdateQuizTitleRequest req, CancellationToken ct = default)
     {
-        var quiz = await _db.Quizzes.FirstOrDefaultAsync(q => q.TopicId == topicId, ct);
+        var quiz = await _db.Quizzes.FirstOrDefaultAsync(
+            q => q.TopicId == topicId && q.Type == QuizType.DailyPracticeTest, ct);
         if (quiz is null) return Result<bool>.Failure("Quiz not found.");
         quiz.Title = req.Title.Trim();
         await _db.SaveChangesAsync(ct);
@@ -180,7 +194,8 @@ public sealed class QuizAdminService : IQuizAdminService
     public async Task<Result<bool>> ReorderQuestionsAsync(
         Guid topicId, ReorderQuestionsRequest req, CancellationToken ct = default)
     {
-        var quiz = await _db.Quizzes.Include(q => q.Questions).FirstOrDefaultAsync(q => q.TopicId == topicId, ct);
+        var quiz = await _db.Quizzes.Include(q => q.Questions)
+            .FirstOrDefaultAsync(q => q.TopicId == topicId && q.Type == QuizType.DailyPracticeTest, ct);
         if (quiz is null) return Result<bool>.Failure("Quiz not found.");
 
         var order = 1;
@@ -207,10 +222,23 @@ public sealed class QuizAdminService : IQuizAdminService
 
         var quiz = await _db.Quizzes
             .Include(q => q.Questions)
-            .FirstOrDefaultAsync(q => q.TopicId == topicId, ct);
+            .FirstOrDefaultAsync(q => q.TopicId == topicId && q.Type == QuizType.DailyPracticeTest, ct);
 
         if (quiz is null)
             return Result<AdminQuizDto>.Failure("Add at least one question before configuring schedule.");
+
+        if (req.DifficultyFilter is not null)
+        {
+            if (string.IsNullOrWhiteSpace(req.DifficultyFilter))
+                quiz.DifficultyFilter = null;
+            else
+            {
+                var parsed = QuizQuestionAssembler.ParseDifficulty(req.DifficultyFilter);
+                if (parsed is null)
+                    return Result<AdminQuizDto>.Failure("Invalid difficulty filter. Use Easy, Medium, or Hard.");
+                quiz.DifficultyFilter = parsed;
+            }
+        }
 
         if (req.ResultVisibility is not null)
         {
@@ -243,14 +271,14 @@ public sealed class QuizAdminService : IQuizAdminService
 
         await _db.SaveChangesAsync(ct);
 
-        return Result<AdminQuizDto>.Success(MapAdminQuiz(quiz));
+        return Result<AdminQuizDto>.Success(await MapAdminQuizAsync(quiz, ct));
     }
 
     public async Task<Result<AdminQuizDto>> PublishResultsAsync(Guid topicId, CancellationToken ct = default)
     {
         var quiz = await _db.Quizzes
             .Include(q => q.Questions)
-            .FirstOrDefaultAsync(q => q.TopicId == topicId, ct);
+            .FirstOrDefaultAsync(q => q.TopicId == topicId && q.Type == QuizType.DailyPracticeTest, ct);
 
         if (quiz is null)
             return Result<AdminQuizDto>.Failure("Quiz not found.");
@@ -261,7 +289,89 @@ public sealed class QuizAdminService : IQuizAdminService
         quiz.ResultsPublishedAtUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
 
-        return Result<AdminQuizDto>.Success(MapAdminQuiz(quiz));
+        return Result<AdminQuizDto>.Success(await MapAdminQuizAsync(quiz, ct));
+    }
+
+    public async Task<AdminUnitQuizDto?> GetUnitQuizAsync(Guid unitId, string quizType, CancellationToken ct = default)
+    {
+        if (!TryParseUnitQuizType(quizType, out var type)) return null;
+
+        var quiz = await _db.Quizzes.FirstOrDefaultAsync(q => q.UnitId == unitId && q.Type == type, ct);
+        if (quiz is null) return null;
+
+        return await MapAdminUnitQuizAsync(quiz, ct);
+    }
+
+    public async Task<Result<AdminUnitQuizDto>> UpdateUnitQuizSettingsAsync(
+        Guid unitId, string quizType, UpdateQuizSettingsRequest req, CancellationToken ct = default)
+    {
+        if (!TryParseUnitQuizType(quizType, out var type))
+            return Result<AdminUnitQuizDto>.Failure("Invalid quiz type.");
+
+        if (req.TimeLimitMinutes is < 0)
+            return Result<AdminUnitQuizDto>.Failure("Time limit cannot be negative.");
+
+        if (req.AvailableFromUtc is not null && req.AvailableUntilUtc is not null
+            && req.AvailableUntilUtc <= req.AvailableFromUtc)
+            return Result<AdminUnitQuizDto>.Failure("Available until must be after available from.");
+
+        var quiz = await _db.Quizzes.FirstOrDefaultAsync(q => q.UnitId == unitId && q.Type == type, ct);
+        if (quiz is null)
+        {
+            quiz = new Quiz
+            {
+                TenantId = _tenant.TenantId,
+                UnitId = unitId,
+                Type = type,
+                Title = type == QuizType.PyqTest ? "PYQ Test" : "Unit Test"
+            };
+            _db.Quizzes.Add(quiz);
+        }
+
+        if (req.ResultVisibility is not null)
+        {
+            var mode = AssessmentResultPolicy.ParseMode(req.ResultVisibility);
+            if (mode is null)
+                return Result<AdminUnitQuizDto>.Failure("Invalid result visibility mode.");
+
+            if (mode == ResultVisibilityMode.AfterClose && req.AvailableUntilUtc is null && quiz.AvailableUntilUtc is null)
+                return Result<AdminUnitQuizDto>.Failure("After-close visibility requires an end date.");
+
+            if (mode != ResultVisibilityMode.ManualPublish)
+                quiz.ResultsPublishedAtUtc = null;
+
+            quiz.ResultVisibility = mode.Value;
+        }
+
+        quiz.TimeLimitMinutes = req.TimeLimitMinutes is > 0 ? req.TimeLimitMinutes : null;
+        quiz.AvailableFromUtc = req.AvailableFromUtc;
+        quiz.AvailableUntilUtc = req.AvailableUntilUtc;
+
+        if (quiz.ResultVisibility == ResultVisibilityMode.AfterClose && quiz.AvailableUntilUtc is null)
+            return Result<AdminUnitQuizDto>.Failure("After-close visibility requires an end date.");
+
+        if (req.ShowExplanations is not null)
+            quiz.ShowExplanations = req.ShowExplanations.Value;
+        if (req.NotifyTeachersOnBatchComplete is not null)
+            quiz.NotifyTeachersOnBatchComplete = req.NotifyTeachersOnBatchComplete.Value;
+        if (req.BatchCompleteThresholdPercent is not null)
+            quiz.BatchCompleteThresholdPercent = Math.Clamp(req.BatchCompleteThresholdPercent.Value, 1, 100);
+
+        if (req.DifficultyFilter is not null)
+        {
+            if (string.IsNullOrWhiteSpace(req.DifficultyFilter))
+                quiz.DifficultyFilter = null;
+            else
+            {
+                var parsed = QuizQuestionAssembler.ParseDifficulty(req.DifficultyFilter);
+                if (parsed is null)
+                    return Result<AdminUnitQuizDto>.Failure("Invalid difficulty filter. Use Easy, Medium, or Hard.");
+                quiz.DifficultyFilter = parsed;
+            }
+        }
+
+        await _db.SaveChangesAsync(ct);
+        return Result<AdminUnitQuizDto>.Success(await MapAdminUnitQuizAsync(quiz, ct));
     }
 
     public Task<Result<McqImportPreviewDto>> PreviewMcqImportAsync(
@@ -298,30 +408,100 @@ public sealed class QuizAdminService : IQuizAdminService
             new McqImportResultDto(imported.Count, 0, imported));
     }
 
-    private static AdminQuizDto MapAdminQuiz(Quiz quiz) => new(
-        quiz.Id,
-        quiz.TopicId,
-        quiz.Title,
-        quiz.TimeLimitMinutes,
-        quiz.AvailableFromUtc,
-        quiz.AvailableUntilUtc,
-        quiz.ResultVisibility.ToString(),
-        quiz.ShowExplanations,
-        quiz.ResultsPublishedAtUtc,
-        quiz.NotifyTeachersOnBatchComplete,
-        quiz.BatchCompleteThresholdPercent,
-        quiz.Questions
-            .OrderBy(q => q.Order)
-            .Select(ToDto)
-            .ToList());
+    private static List<string> DeserializeOptions(string json)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(json) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
+
+    private async Task<AdminQuizDto> MapAdminQuizAsync(Quiz quiz, CancellationToken ct)
+    {
+        var assembled = quiz.IsAssembledQuiz && quiz.UnitId is not null
+            ? (await QuizQuestionAssembler.AssembleUnitQuestionsAsync(
+                _db, _scope, quiz.UnitId.Value, quiz.Type, null, null, ct)).Count
+            : 0;
+
+        return new AdminQuizDto(
+            quiz.Id,
+            quiz.TopicId,
+            quiz.UnitId,
+            quiz.Type.ToString(),
+            quiz.Title,
+            quiz.TimeLimitMinutes,
+            quiz.AvailableFromUtc,
+            quiz.AvailableUntilUtc,
+            quiz.ResultVisibility.ToString(),
+            quiz.ShowExplanations,
+            quiz.ResultsPublishedAtUtc,
+            quiz.NotifyTeachersOnBatchComplete,
+            quiz.BatchCompleteThresholdPercent,
+            quiz.DifficultyFilter?.ToString(),
+            assembled,
+            quiz.Questions
+                .OrderBy(q => q.Order)
+                .Select(ToDto)
+                .ToList());
+    }
+
+    private async Task<AdminUnitQuizDto> MapAdminUnitQuizAsync(Quiz quiz, CancellationToken ct)
+    {
+        var count = quiz.UnitId is null
+            ? 0
+            : (await QuizQuestionAssembler.AssembleUnitQuestionsAsync(
+                _db, _scope, quiz.UnitId.Value, quiz.Type, quiz.DifficultyFilter, null, ct)).Count;
+
+        return new AdminUnitQuizDto(
+            quiz.Id,
+            quiz.UnitId!.Value,
+            quiz.Type.ToString(),
+            quiz.Title,
+            quiz.TimeLimitMinutes,
+            quiz.AvailableFromUtc,
+            quiz.AvailableUntilUtc,
+            quiz.ResultVisibility.ToString(),
+            quiz.ShowExplanations,
+            quiz.ResultsPublishedAtUtc,
+            quiz.NotifyTeachersOnBatchComplete,
+            quiz.BatchCompleteThresholdPercent,
+            quiz.DifficultyFilter?.ToString(),
+            count);
+    }
+
+    private static bool TryParseUnitQuizType(string quizType, out QuizType type)
+    {
+        type = QuizType.UnitTest;
+        if (string.IsNullOrWhiteSpace(quizType)) return false;
+
+        var normalized = quizType.Trim().Replace("-", "", StringComparison.OrdinalIgnoreCase);
+        return normalized.ToLowerInvariant() switch
+        {
+            "unittest" => Assign(QuizType.UnitTest, out type),
+            "pyqtest" => Assign(QuizType.PyqTest, out type),
+            _ => Enum.TryParse(quizType, ignoreCase: true, out type)
+                && type is QuizType.UnitTest or QuizType.PyqTest
+        };
+    }
+
+    private static bool Assign(QuizType value, out QuizType type)
+    {
+        type = value;
+        return true;
+    }
 
     private static AdminQuestionDto ToDto(Question q) => new(
         q.Id,
         q.Stem,
-        JsonSerializer.Deserialize<List<string>>(q.OptionsJson) ?? new List<string>(),
+        DeserializeOptions(q.OptionsJson),
         q.CorrectKey,
         q.Explanation,
         q.Order,
+        q.Difficulty.ToString(),
         q.IsPyq,
         q.PyqYear,
         q.PyqExam);

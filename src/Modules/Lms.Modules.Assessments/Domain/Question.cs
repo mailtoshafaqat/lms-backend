@@ -20,6 +20,8 @@ public sealed class Question : TenantEntity
     public string? Explanation { get; set; }
     public int Order { get; set; }
 
+    public QuestionDifficulty Difficulty { get; set; } = QuestionDifficulty.Medium;
+
     public bool IsPyq { get; set; }
     public int? PyqYear { get; set; }
     public string? PyqExam { get; set; }

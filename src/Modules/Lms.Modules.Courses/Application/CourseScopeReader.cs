@@ -24,12 +24,18 @@ public sealed class CourseScopeReader : ICourseScopeReader
     public async Task<SubjectScope?> GetSubjectScopeAsync(Guid subjectId, CancellationToken ct = default) =>
         await _db.Subjects.AsNoTracking()
             .Where(s => s.Id == subjectId)
-            .Select(s => new SubjectScope(s.Id, s.Title, s.BundleId))
+            .Select(s => new SubjectScope(s.Id, s.Title, s.BundleId, s.Bundle!.Title))
             .FirstOrDefaultAsync(ct);
 
     public async Task<IReadOnlyList<Guid>> GetTopicIdsForSubjectAsync(Guid subjectId, CancellationToken ct = default) =>
         await _db.Topics.AsNoTracking()
             .Where(t => t.Unit!.SubjectId == subjectId)
+            .Select(t => t.Id)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<Guid>> GetTopicIdsForUnitAsync(Guid unitId, CancellationToken ct = default) =>
+        await _db.Topics.AsNoTracking()
+            .Where(t => t.UnitId == unitId)
             .Select(t => t.Id)
             .ToListAsync(ct);
 }

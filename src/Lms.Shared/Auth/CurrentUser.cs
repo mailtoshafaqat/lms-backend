@@ -9,12 +9,13 @@ public sealed class CurrentUser : ICurrentUser
 
     public CurrentUser(IHttpContextAccessor accessor) => _user = accessor.HttpContext?.User;
 
-    public Guid? UserId =>
-        Guid.TryParse(_user?.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var id) ? id : null;
+    public Guid? UserId => _user.GetUserId();
 
-    public string? Email => _user?.FindFirst(ClaimTypes.Email)?.Value;
+    public string? Email =>
+        _user?.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
+        ?? _user?.FindFirst("email")?.Value;
 
-    public string? Role => _user?.FindFirst(ClaimTypes.Role)?.Value;
+    public string? Role => _user.GetRole();
 
     public bool IsAuthenticated => _user?.Identity?.IsAuthenticated ?? false;
 }

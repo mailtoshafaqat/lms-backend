@@ -186,8 +186,7 @@ public sealed class DoubtService : IDoubtService
         _db.DoubtMessages.Add(message);
         await _db.SaveChangesAsync(ct);
 
-        thread.Messages.Add(message);
-        return Result<DoubtThreadDetailDto>.Success(MapDetail(thread, thread.Messages.OrderBy(m => m.CreatedAt).ToList()));
+        return Result<DoubtThreadDetailDto>.Success(MapDetail(thread, thread.Messages));
     }
 
     public async Task<PagedResult<DoubtThreadSummaryDto>> ListAdminThreadsAsync(
@@ -270,8 +269,7 @@ public sealed class DoubtService : IDoubtService
         _db.DoubtMessages.Add(message);
         await _db.SaveChangesAsync(ct);
 
-        thread.Messages.Add(message);
-        return Result<DoubtThreadDetailDto>.Success(MapDetail(thread, thread.Messages.OrderBy(m => m.CreatedAt).ToList()));
+        return Result<DoubtThreadDetailDto>.Success(MapDetail(thread, thread.Messages));
     }
 
     public async Task<Result<DoubtThreadDetailDto>> ResolveThreadAsync(
@@ -448,11 +446,15 @@ public sealed class DoubtService : IDoubtService
         t.CreatedAt,
         t.UpdatedAt,
         t.ResolvedAt,
-        messages.Select(m => new DoubtMessageDto(
-            m.Id,
-            m.AuthorUserId,
-            m.AuthorName,
-            m.AuthorRole,
-            m.Body,
-            m.CreatedAt)).ToList());
+        messages
+            .DistinctBy(m => m.Id)
+            .OrderBy(m => m.CreatedAt)
+            .Select(m => new DoubtMessageDto(
+                m.Id,
+                m.AuthorUserId,
+                m.AuthorName,
+                m.AuthorRole,
+                m.Body,
+                m.CreatedAt))
+            .ToList());
 }

@@ -7,7 +7,8 @@ public sealed record CreateQuestionRequest(
     string? Explanation,
     bool IsPyq = false,
     int? PyqYear = null,
-    string? PyqExam = null);
+    string? PyqExam = null,
+    string? Difficulty = null);
 
 public sealed record AdminQuestionDto(
     Guid Id,
@@ -16,13 +17,16 @@ public sealed record AdminQuestionDto(
     string CorrectKey,
     string? Explanation,
     int Order,
+    string Difficulty,
     bool IsPyq,
     int? PyqYear,
     string? PyqExam);
 
 public sealed record AdminQuizDto(
     Guid Id,
-    Guid TopicId,
+    Guid? TopicId,
+    Guid? UnitId,
+    string Type,
     string Title,
     int? TimeLimitMinutes,
     DateTime? AvailableFromUtc,
@@ -32,7 +36,25 @@ public sealed record AdminQuizDto(
     DateTime? ResultsPublishedAtUtc,
     bool NotifyTeachersOnBatchComplete,
     int BatchCompleteThresholdPercent,
+    string? DifficultyFilter,
+    int AssembledQuestionCount,
     IReadOnlyList<AdminQuestionDto> Questions);
+
+public sealed record AdminUnitQuizDto(
+    Guid Id,
+    Guid UnitId,
+    string Type,
+    string Title,
+    int? TimeLimitMinutes,
+    DateTime? AvailableFromUtc,
+    DateTime? AvailableUntilUtc,
+    string ResultVisibility,
+    bool ShowExplanations,
+    DateTime? ResultsPublishedAtUtc,
+    bool NotifyTeachersOnBatchComplete,
+    int BatchCompleteThresholdPercent,
+    string? DifficultyFilter,
+    int AssembledQuestionCount);
 
 public sealed record UpdateQuizSettingsRequest(
     int? TimeLimitMinutes,
@@ -41,7 +63,8 @@ public sealed record UpdateQuizSettingsRequest(
     string? ResultVisibility = null,
     bool? ShowExplanations = null,
     bool? NotifyTeachersOnBatchComplete = null,
-    int? BatchCompleteThresholdPercent = null);
+    int? BatchCompleteThresholdPercent = null,
+    string? DifficultyFilter = null);
 
 public sealed record UpdateQuestionRequest(
     string Stem,
@@ -50,7 +73,8 @@ public sealed record UpdateQuestionRequest(
     string? Explanation,
     bool IsPyq = false,
     int? PyqYear = null,
-    string? PyqExam = null);
+    string? PyqExam = null,
+    string? Difficulty = null);
 
 public sealed record QuestionAnalyticsDto(
     Guid QuestionId,

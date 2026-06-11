@@ -70,7 +70,12 @@ public sealed class EnrollmentService : IEnrollmentService
         return Result<EnrollmentDto>.Success(Map(enrollment));
     }
 
-    public async Task<IReadOnlyList<EnrollmentDto>> GetMyEnrollmentsAsync(Guid userId, CancellationToken ct = default)
+    public Task<IReadOnlyList<EnrollmentDto>> GetMyEnrollmentsAsync(
+        Guid userId, CancellationToken ct = default) =>
+        GetEnrollmentsForUserAsync(userId, ct);
+
+    public async Task<IReadOnlyList<EnrollmentDto>> GetEnrollmentsForUserAsync(
+        Guid userId, CancellationToken ct = default)
     {
         var rows = await _db.Enrollments
             .Where(e => e.UserId == userId)
@@ -78,6 +83,23 @@ public sealed class EnrollmentService : IEnrollmentService
             .ToListAsync(ct);
 
         return rows.Select(Map).ToList();
+    }
+
+    public async Task<Result<EnrollmentDto>> ExtendEnrollmentAsync(
+        Guid userId, Guid bundleId, DateTime expiresAt, CancellationToken ct = default)
+    {
+        if (expiresAt <= DateTime.UtcNow)
+            return Result<EnrollmentDto>.Failure("Expiry must be in the future.");
+
+        var enrollment = await _db.Enrollments
+            .FirstOrDefaultAsync(e => e.UserId == userId && e.BundleId == bundleId, ct);
+        if (enrollment is null)
+            return Result<EnrollmentDto>.Failure("Enrollment not found.");
+
+        enrollment.ExpiresAt = expiresAt;
+        await _db.SaveChangesAsync(ct);
+
+        return Result<EnrollmentDto>.Success(Map(enrollment));
     }
 
     private static EnrollmentDto Map(EnrollmentEntity e) =>

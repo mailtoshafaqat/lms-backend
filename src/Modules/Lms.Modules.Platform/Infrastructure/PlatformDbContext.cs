@@ -18,6 +18,7 @@ public sealed class PlatformDbContext : DbContext
     public DbSet<TenantSettings> TenantSettings => Set<TenantSettings>();
     public DbSet<LandingPage> LandingPages => Set<LandingPage>();
     public DbSet<PageSection> PageSections => Set<PageSection>();
+    public DbSet<RequestIncident> RequestIncidents => Set<RequestIncident>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -65,6 +66,21 @@ public sealed class PlatformDbContext : DbContext
             e.ToTable("PageSections");
             e.Property(s => s.SectionType).IsRequired().HasMaxLength(32);
             e.Property(s => s.ContentJson).IsRequired();
+        });
+
+        builder.Entity<RequestIncident>(e =>
+        {
+            e.ToTable("RequestIncidents");
+            e.Property(i => i.TraceId).IsRequired().HasMaxLength(128);
+            e.Property(i => i.Method).IsRequired().HasMaxLength(16);
+            e.Property(i => i.Path).IsRequired().HasMaxLength(512);
+            e.Property(i => i.ErrorMessage).HasMaxLength(2000);
+            e.Property(i => i.ExceptionType).HasMaxLength(256);
+            e.Property(i => i.ExceptionDetail).HasMaxLength(4000);
+            e.Property(i => i.TenantSlug).HasMaxLength(64);
+            e.Property(i => i.UserEmail).HasMaxLength(256);
+            e.HasIndex(i => i.TraceId);
+            e.HasIndex(i => i.CreatedAt);
         });
 
         base.OnModelCreating(builder);

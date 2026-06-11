@@ -109,6 +109,26 @@ public sealed class AdminAssessmentsController : ControllerBase
         return r.Succeeded ? Ok(r.Value) : BadRequest(new { error = r.Error });
     }
 
+    [HttpGet("units/{unitId:guid}/quizzes/{quizType}")]
+    public async Task<IActionResult> GetUnitQuiz(Guid unitId, string quizType, CancellationToken ct)
+    {
+        if (!await CanManageUnit(unitId, ct)) return Forbid();
+        var quiz = await _admin.GetUnitQuizAsync(unitId, quizType, ct);
+        return quiz is null ? NotFound() : Ok(quiz);
+    }
+
+    [HttpPut("units/{unitId:guid}/quizzes/{quizType}/settings")]
+    public async Task<IActionResult> UpdateUnitQuizSettings(
+        Guid unitId, string quizType, [FromBody] UpdateQuizSettingsRequest req, CancellationToken ct)
+    {
+        if (!await CanManageUnit(unitId, ct)) return Forbid();
+        var r = await _admin.UpdateUnitQuizSettingsAsync(unitId, quizType, req, ct);
+        return r.Succeeded ? Ok(r.Value) : BadRequest(new { error = r.Error });
+    }
+
     private Task<bool> CanManageTopic(Guid topicId, CancellationToken ct) =>
         _access.CanManageTopicAsync(_current.UserId ?? Guid.Empty, _current.Role ?? Roles.Student, topicId, ct);
+
+    private Task<bool> CanManageUnit(Guid unitId, CancellationToken ct) =>
+        _access.CanManageUnitAsync(_current.UserId ?? Guid.Empty, _current.Role ?? Roles.Student, unitId, ct);
 }

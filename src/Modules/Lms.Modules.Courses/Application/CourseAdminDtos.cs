@@ -9,3 +9,9 @@ public sealed record CreateSubjectRequest(string Title, int Order);
 public sealed record CreateUnitRequest(string Title, int Order);
 
 public sealed record CreateTopicRequest(string Title, int Order, bool HasVideo);
+
+public sealed record UpdateSubjectRequest(string Title);
+
+public sealed record UpdateUnitRequest(string Title);
+
+public sealed record UpdateTopicRequest(string Title);

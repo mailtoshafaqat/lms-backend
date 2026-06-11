@@ -24,7 +24,7 @@ public sealed class QuestionReader : IQuestionReader
 
         return rows.Select(x => new QuestionSnapshot(
             x.q.Id,
-            x.quiz.TopicId,
+            x.quiz.TopicId ?? Guid.Empty,
             x.quiz.Id,
             x.q.Stem,
             JsonSerializer.Deserialize<List<string>>(x.q.OptionsJson) ?? [],

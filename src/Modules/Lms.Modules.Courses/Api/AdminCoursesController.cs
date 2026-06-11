@@ -73,6 +73,38 @@ public sealed class AdminCoursesController : ControllerBase
         return r.Succeeded ? Ok(r.Value) : BadRequest(new { error = r.Error });
     }
 
+    [HttpGet("topics/{id:guid}")]
+    public async Task<IActionResult> GetTopic(Guid id, CancellationToken ct)
+    {
+        if (!await CanManageTopic(id, ct)) return Forbid();
+        var r = await _admin.GetTopicAsync(id, ct);
+        return r.Succeeded ? Ok(r.Value) : NotFound(new { error = r.Error });
+    }
+
+    [HttpPut("topics/{id:guid}")]
+    [Authorize(Policy = "InstituteAdmin")]
+    public async Task<IActionResult> UpdateTopic(Guid id, [FromBody] UpdateTopicRequest req, CancellationToken ct)
+    {
+        var r = await _admin.UpdateTopicAsync(id, req, ct);
+        return r.Succeeded ? Ok(r.Value) : BadRequest(new { error = r.Error });
+    }
+
+    [HttpPut("subjects/{id:guid}")]
+    [Authorize(Policy = "InstituteAdmin")]
+    public async Task<IActionResult> UpdateSubject(Guid id, [FromBody] UpdateSubjectRequest req, CancellationToken ct)
+    {
+        var r = await _admin.UpdateSubjectAsync(id, req, ct);
+        return r.Succeeded ? Ok(r.Value) : BadRequest(new { error = r.Error });
+    }
+
+    [HttpPut("units/{id:guid}")]
+    [Authorize(Policy = "InstituteAdmin")]
+    public async Task<IActionResult> UpdateUnit(Guid id, [FromBody] UpdateUnitRequest req, CancellationToken ct)
+    {
+        var r = await _admin.UpdateUnitAsync(id, req, ct);
+        return r.Succeeded ? Ok(r.Value) : BadRequest(new { error = r.Error });
+    }
+
     [HttpDelete("bundles/{id:guid}")]
     [Authorize(Policy = "InstituteAdmin")]
     public async Task<IActionResult> DeleteBundle(Guid id, CancellationToken ct) =>

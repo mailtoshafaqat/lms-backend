@@ -6,8 +6,6 @@ using Lms.Modules.Assessments.Infrastructure;
 
 using Lms.Shared.Common;
 
-using Lms.Shared.Courses;
-
 using Lms.Shared.Enrollments;
 
 using Lms.Shared.Tenancy;
@@ -30,8 +28,6 @@ public sealed class MockExamService : IMockExamService
 
     private readonly IEnrollmentReader _enrollments;
 
-    private readonly ICourseScopeReader _scope;
-
     private readonly QuizBatchNotifier _batchNotifier;
 
 
@@ -44,8 +40,6 @@ public sealed class MockExamService : IMockExamService
 
         IEnrollmentReader enrollments,
 
-        ICourseScopeReader scope,
-
         QuizBatchNotifier batchNotifier)
 
     {
@@ -55,8 +49,6 @@ public sealed class MockExamService : IMockExamService
         _tenant = tenant;
 
         _enrollments = enrollments;
-
-        _scope = scope;
 
         _batchNotifier = batchNotifier;
 
@@ -70,45 +62,28 @@ public sealed class MockExamService : IMockExamService
 
     {
 
-        var bundleIds = await _enrollments.GetActiveBundleIdsAsync(userId, ct);
+        var activeEnrollments = await _enrollments.GetActiveEnrollmentsAsync(userId, ct);
+        if (activeEnrollments.Count == 0) return [];
 
-        if (bundleIds.Count == 0) return [];
-
-
+        var bundleIds = activeEnrollments.Select(e => e.BundleId).ToHashSet();
+        var expiresByBundle = activeEnrollments.ToDictionary(e => e.BundleId, e => e.ExpiresAt);
 
         var exams = await _db.MockExams
-
+            .Include(m => m.Sections).ThenInclude(s => s.Topics)
             .Include(m => m.Topics)
-
-            .Where(m => m.IsPublished)
-
+            .Where(m => m.IsPublished && !m.IsArchived && bundleIds.Contains(m.BundleId))
             .OrderByDescending(m => m.CreatedAt)
-
             .ToListAsync(ct);
 
-
-
         var now = DateTime.UtcNow;
-
         var summaries = new List<MockExamSummaryDto>();
 
-
-
         foreach (var exam in exams)
-
         {
-
-            if (!await IsUserEligibleAsync(exam.SubjectId, bundleIds, ct)) continue;
-
-
-
             var active = await GetActiveAttemptAsync(exam.Id, userId, now, ct);
-
-            summaries.Add(await MapSummaryAsync(exam, active, ct));
-
+            expiresByBundle.TryGetValue(exam.BundleId, out var expiresAt);
+            summaries.Add(await MapSummaryAsync(exam, active, expiresAt, ct));
         }
-
-
 
         return summaries;
 
@@ -122,21 +97,16 @@ public sealed class MockExamService : IMockExamService
 
     {
 
-        var exam = await _db.MockExams.Include(m => m.Topics).FirstOrDefaultAsync(m => m.Id == mockExamId, ct);
+        var exam = await LoadExamAsync(mockExamId, ct);
 
-        if (exam is null || !exam.IsPublished) return null;
+        if (exam is null || !exam.IsPublished || exam.IsArchived) return null;
 
-
-
-        var bundleIds = await _enrollments.GetActiveBundleIdsAsync(userId, ct);
-
-        if (!await IsUserEligibleAsync(exam.SubjectId, bundleIds, ct)) return null;
-
-
+        var activeEnrollments = await _enrollments.GetActiveEnrollmentsAsync(userId, ct);
+        var enrollment = activeEnrollments.FirstOrDefault(e => e.BundleId == exam.BundleId);
+        if (enrollment is null) return null;
 
         var active = await GetActiveAttemptAsync(exam.Id, userId, DateTime.UtcNow, ct);
-
-        return await MapSummaryAsync(exam, active, ct);
+        return await MapSummaryAsync(exam, active, enrollment.ExpiresAt, ct);
 
     }
 
@@ -148,18 +118,13 @@ public sealed class MockExamService : IMockExamService
 
     {
 
-        var exam = await _db.MockExams.Include(m => m.Topics).FirstOrDefaultAsync(m => m.Id == mockExamId, ct);
+        var exam = await LoadExamAsync(mockExamId, ct);
 
-        if (exam is null || !exam.IsPublished)
-
+        if (exam is null || !exam.IsPublished || exam.IsArchived)
             return Result<StartMockAttemptResultDto>.Failure("Mock exam not found.");
 
-
-
         var bundleIds = await _enrollments.GetActiveBundleIdsAsync(userId, ct);
-
-        if (!await IsUserEligibleAsync(exam.SubjectId, bundleIds, ct))
-
+        if (!bundleIds.Contains(exam.BundleId))
             return Result<StartMockAttemptResultDto>.Failure("You are not enrolled for this exam.");
 
 
@@ -180,7 +145,8 @@ public sealed class MockExamService : IMockExamService
 
         {
 
-            var questions = await LoadQuestionsForAttemptAsync(active, ct);
+            var questions = await LoadQuestionsForAttemptAsync(active, exam, ct);
+            var sections = BuildSectionNav(exam, questions);
 
             return Result<StartMockAttemptResultDto>.Success(new StartMockAttemptResultDto(
 
@@ -190,7 +156,11 @@ public sealed class MockExamService : IMockExamService
 
                 active.ExpiresAtUtc,
 
-                questions));
+                questions,
+
+                QuizQuestionAssembler.DeserializeGuidList(active.FlaggedQuestionIdsJson),
+
+                sections));
 
         }
 
@@ -222,7 +192,9 @@ public sealed class MockExamService : IMockExamService
 
             QuestionIdsJson = JsonSerializer.Serialize(questionIds),
 
-            AnswersJson = "{}"
+            AnswersJson = "{}",
+
+            FlaggedQuestionIdsJson = "[]"
 
         };
 
@@ -234,11 +206,13 @@ public sealed class MockExamService : IMockExamService
 
 
 
-        var mapped = await LoadQuestionsByIdsAsync(questionIds, ct);
+        var mapped = await LoadQuestionsByIdsAsync(questionIds, exam, ct);
+        var sectionNav = BuildSectionNav(exam, mapped);
 
         return Result<StartMockAttemptResultDto>.Success(new StartMockAttemptResultDto(
 
-            attempt.Id, attempt.StartedAt!.Value, attempt.ExpiresAtUtc, mapped));
+            attempt.Id, attempt.StartedAt!.Value, attempt.ExpiresAtUtc, mapped,
+            Array.Empty<Guid>(), sectionNav));
 
     }
 
@@ -256,7 +230,7 @@ public sealed class MockExamService : IMockExamService
 
 
 
-        var exam = await _db.MockExams.FirstOrDefaultAsync(m => m.Id == mockExamId, ct);
+        var exam = await LoadExamAsync(mockExamId, ct);
 
         if (exam is null) return Result<MockExamAttemptResultDto>.Failure("Mock exam not found.");
 
@@ -294,7 +268,8 @@ public sealed class MockExamService : IMockExamService
 
         var fullResults = new List<MockExamQuestionResultDto>();
 
-        var score = 0;
+        var correct = 0;
+        var wrong = 0;
 
 
 
@@ -304,9 +279,13 @@ public sealed class MockExamService : IMockExamService
 
             selectedByQuestion.TryGetValue(q.Id, out var selected);
 
-            var isCorrect = selected == q.CorrectKey;
+            var isCorrect = !string.IsNullOrEmpty(selected) && selected == q.CorrectKey;
 
-            if (isCorrect) score++;
+            if (!string.IsNullOrEmpty(selected))
+            {
+                if (isCorrect) correct++;
+                else wrong++;
+            }
 
 
 
@@ -314,18 +293,20 @@ public sealed class MockExamService : IMockExamService
 
                 q.Id, q.Stem, DeserializeOptions(q.OptionsJson),
 
-                q.CorrectKey, selected, isCorrect, q.Explanation));
+                q.CorrectKey, string.IsNullOrEmpty(selected) ? null : selected, isCorrect, q.Explanation));
 
         }
 
 
 
         attempt.AnswersJson = JsonSerializer.Serialize(selectedByQuestion);
+        attempt.FlaggedQuestionIdsJson = QuizQuestionAssembler.SerializeGuidList(
+            request.FlaggedQuestionIds ?? Array.Empty<Guid>());
 
-        attempt.Score = score;
-
+        attempt.CorrectCount = correct;
+        attempt.WrongCount = wrong;
+        attempt.Score = correct * exam.MarksPerCorrect - wrong * exam.PenaltyPerWrong;
         attempt.Total = questions.Count;
-
         attempt.SubmittedAt = now;
 
         await _db.SaveChangesAsync(ct);
@@ -338,7 +319,7 @@ public sealed class MockExamService : IMockExamService
 
         return Result<MockExamAttemptResultDto>.Success(
 
-            BuildAttemptResult(exam, attempt, fullResults, now));
+            await BuildAttemptResultAsync(exam, attempt, fullResults, now, ct));
 
     }
 
@@ -350,7 +331,7 @@ public sealed class MockExamService : IMockExamService
 
     {
 
-        var exam = await _db.MockExams.FirstOrDefaultAsync(m => m.Id == mockExamId, ct);
+        var exam = await LoadExamAsync(mockExamId, ct);
 
         if (exam is null) return Result<MockExamAttemptResultDto>.Failure("Mock exam not found.");
 
@@ -372,13 +353,13 @@ public sealed class MockExamService : IMockExamService
 
         return Result<MockExamAttemptResultDto>.Success(
 
-            BuildAttemptResult(exam, attempt, fullResults, DateTime.UtcNow));
+            await BuildAttemptResultAsync(exam, attempt, fullResults, DateTime.UtcNow, ct));
 
     }
 
 
 
-    private static MockExamAttemptResultDto BuildAttemptResult(
+    private async Task<MockExamAttemptResultDto> BuildAttemptResultAsync(
 
         MockExam exam,
 
@@ -386,7 +367,9 @@ public sealed class MockExamService : IMockExamService
 
         IReadOnlyList<MockExamQuestionResultDto> fullResults,
 
-        DateTime nowUtc)
+        DateTime nowUtc,
+
+        CancellationToken ct)
 
     {
 
@@ -412,12 +395,33 @@ public sealed class MockExamService : IMockExamService
 
 
 
+        MockExamRankDto? rank = null;
+        if (visible)
+        {
+            var ranked = MockExamRankCalculator.OrderForRanking(
+                await _db.MockExamAttempts
+                    .Where(a => a.MockExamId == exam.Id && a.SubmittedAt != null)
+                    .ToListAsync(ct));
+            rank = MockExamRankCalculator.ComputeRank(attempt, ranked);
+        }
+
+
+
         return new MockExamAttemptResultDto(
 
             attempt.Id,
 
             visible ? attempt.Score : 0,
+
             attempt.Total > 0 ? attempt.Total : fullResults.Count,
+
+            visible ? attempt.CorrectCount : 0,
+
+            visible ? attempt.WrongCount : 0,
+
+            exam.MarksPerCorrect,
+
+            exam.PenaltyPerWrong,
 
             visible,
 
@@ -428,6 +432,8 @@ public sealed class MockExamService : IMockExamService
             availableAt,
 
             exam.ShowExplanations,
+
+            rank,
 
             AssessmentResultPolicy.GateMockQuestionResults(visible, exam.ShowExplanations, fullResults));
 
@@ -461,13 +467,13 @@ public sealed class MockExamService : IMockExamService
 
             selectedByQuestion.TryGetValue(q.Id, out var selected);
 
-            var isCorrect = selected == q.CorrectKey;
+            var isCorrect = !string.IsNullOrEmpty(selected) && selected == q.CorrectKey;
 
             results.Add(new MockExamQuestionResultDto(
 
                 q.Id, q.Stem, DeserializeOptions(q.OptionsJson),
 
-                q.CorrectKey, selected, isCorrect, q.Explanation));
+                q.CorrectKey, string.IsNullOrEmpty(selected) ? null : selected, isCorrect, q.Explanation));
 
         }
 
@@ -479,31 +485,14 @@ public sealed class MockExamService : IMockExamService
 
 
 
-    private async Task<bool> IsUserEligibleAsync(
-
-        Guid subjectId, IReadOnlyList<Guid> bundleIds, CancellationToken ct)
-
-    {
-
-        if (bundleIds.Count == 0) return false;
-
-        var subject = await _scope.GetSubjectScopeAsync(subjectId, ct);
-
-        return subject is not null && bundleIds.Contains(subject.BundleId);
-
-    }
-
-
-
     private async Task<MockExamSummaryDto> MapSummaryAsync(
-
-        MockExam exam, MockExamAttempt? active, CancellationToken ct)
+        MockExam exam, MockExamAttempt? active, DateTime? accessExpiresAt, CancellationToken ct)
 
     {
 
         var totalQuestions = 0;
 
-        foreach (var topic in exam.Topics.OrderBy(t => t.Order))
+        foreach (var topic in GetOrderedTopics(exam))
 
         {
 
@@ -530,27 +519,21 @@ public sealed class MockExamService : IMockExamService
 
 
         return new MockExamSummaryDto(
-
             exam.Id,
-
+            exam.BundleId,
+            exam.BundleTitle,
             exam.SubjectId,
-
             exam.SubjectTitle,
-
             exam.Title,
-
             exam.Description,
-
             exam.TimeLimitMinutes,
-
+            exam.MarksPerCorrect,
+            exam.PenaltyPerWrong,
             exam.AvailableFromUtc,
-
             exam.AvailableUntilUtc,
-
             GetAvailabilityStatus(exam, now),
-
             totalQuestions,
-
+            accessExpiresAt,
             activeDto);
 
     }
@@ -563,23 +546,29 @@ public sealed class MockExamService : IMockExamService
 
         var ids = new List<Guid>();
 
-        foreach (var topic in exam.Topics.OrderBy(t => t.Order))
+        foreach (var section in exam.Sections.OrderBy(s => s.SortOrder))
 
         {
 
-            var quiz = await _db.Quizzes.Include(q => q.Questions)
+            foreach (var topic in section.Topics.OrderBy(t => t.Order))
 
-                .FirstOrDefaultAsync(q => q.TopicId == topic.TopicId, ct);
+            {
 
-            if (quiz is null) continue;
+                var quiz = await _db.Quizzes.Include(q => q.Questions)
+
+                    .FirstOrDefaultAsync(q => q.TopicId == topic.TopicId, ct);
+
+                if (quiz is null) continue;
 
 
 
-            var pool = quiz.Questions.OrderBy(q => q.Order).Select(q => q.Id).ToList();
+                var pool = quiz.Questions.OrderBy(q => q.Order).Select(q => q.Id).ToList();
 
-            var take = topic.QuestionCount == 0 ? pool.Count : topic.QuestionCount;
+                var take = topic.QuestionCount == 0 ? pool.Count : topic.QuestionCount;
 
-            ids.AddRange(pool.Take(take));
+                ids.AddRange(pool.Take(take));
+
+            }
 
         }
 
@@ -591,15 +580,22 @@ public sealed class MockExamService : IMockExamService
 
 
 
+    private static IReadOnlyList<MockExamTopic> GetOrderedTopics(MockExam exam) =>
+        exam.Sections.Count > 0
+            ? exam.Sections.OrderBy(s => s.SortOrder).SelectMany(s => s.Topics.OrderBy(t => t.Order)).ToList()
+            : exam.Topics.OrderBy(t => t.Order).ToList();
+
+
+
     private async Task<IReadOnlyList<MockExamQuestionDto>> LoadQuestionsForAttemptAsync(
 
-        MockExamAttempt attempt, CancellationToken ct)
+        MockExamAttempt attempt, MockExam exam, CancellationToken ct)
 
     {
 
         var ids = JsonSerializer.Deserialize<List<Guid>>(attempt.QuestionIdsJson) ?? [];
 
-        return await LoadQuestionsByIdsAsync(ids, ct);
+        return await LoadQuestionsByIdsAsync(ids, exam, ct);
 
     }
 
@@ -607,7 +603,7 @@ public sealed class MockExamService : IMockExamService
 
     private async Task<IReadOnlyList<MockExamQuestionDto>> LoadQuestionsByIdsAsync(
 
-        List<Guid> ids, CancellationToken ct)
+        List<Guid> ids, MockExam exam, CancellationToken ct)
 
     {
 
@@ -615,17 +611,85 @@ public sealed class MockExamService : IMockExamService
 
         var orderMap = ids.Select((id, i) => (id, i)).ToDictionary(x => x.id, x => x.i);
 
+        var sectionByQuestion = BuildQuestionSectionMap(exam, ids);
+
 
 
         return questions
 
             .OrderBy(q => orderMap.GetValueOrDefault(q.Id, q.Order))
 
-            .Select((q, i) => new MockExamQuestionDto(q.Id, q.Stem, DeserializeOptions(q.OptionsJson), i + 1))
+            .Select((q, i) => new MockExamQuestionDto(
+                q.Id,
+                q.Stem,
+                DeserializeOptions(q.OptionsJson),
+                i + 1,
+                sectionByQuestion.GetValueOrDefault(q.Id)))
 
             .ToList();
 
     }
+
+
+
+    private static Dictionary<Guid, string> BuildQuestionSectionMap(MockExam exam, IReadOnlyList<Guid> assembledIds)
+    {
+        var map = new Dictionary<Guid, string>();
+        var index = 0;
+
+        foreach (var section in exam.Sections.OrderBy(s => s.SortOrder))
+        {
+            foreach (var topic in section.Topics.OrderBy(t => t.Order))
+            {
+                var take = topic.QuestionCount == 0 ? int.MaxValue : topic.QuestionCount;
+                var count = 0;
+                while (index < assembledIds.Count && count < take)
+                {
+                    map.TryAdd(assembledIds[index], section.Title);
+                    index++;
+                    count++;
+                }
+            }
+        }
+
+        return map;
+    }
+
+
+
+    private static IReadOnlyList<MockExamSectionNavDto> BuildSectionNav(
+        MockExam exam, IReadOnlyList<MockExamQuestionDto> questions)
+    {
+        if (exam.Sections.Count == 0 || questions.Count == 0) return [];
+
+        var nav = new List<MockExamSectionNavDto>();
+        var grouped = questions
+            .GroupBy(q => q.SectionTitle ?? "General")
+            .ToList();
+
+        var order = 1;
+        var start = 1;
+        foreach (var section in exam.Sections.OrderBy(s => s.SortOrder))
+        {
+            var count = grouped.FirstOrDefault(g => g.Key == section.Title)?.Count() ?? 0;
+            if (count > 0)
+            {
+                nav.Add(new MockExamSectionNavDto(section.Title, order, start, count));
+                start += count;
+            }
+            order++;
+        }
+
+        return nav;
+    }
+
+
+
+    private Task<MockExam?> LoadExamAsync(Guid id, CancellationToken ct) =>
+        _db.MockExams
+            .Include(m => m.Sections).ThenInclude(s => s.Topics)
+            .Include(m => m.Topics)
+            .FirstOrDefaultAsync(m => m.Id == id, ct);
 
 
 
@@ -710,4 +774,3 @@ public sealed class MockExamService : IMockExamService
         JsonSerializer.Deserialize<List<string>>(json) ?? [];
 
 }
-
