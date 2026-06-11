@@ -1,5 +1,6 @@
 using Lms.Modules.Assessments.Application;
 using Lms.Shared.Auth;
+using Lms.Shared.Tenancy;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -8,6 +9,7 @@ namespace Lms.Modules.Assessments.Api;
 [ApiController]
 [Route("api/v1")]
 [Authorize]
+[RequireProductModule(ProductModule.MockExams)]
 public sealed class MockExamsController : ControllerBase
 {
     private readonly IMockExamService _mockExams;

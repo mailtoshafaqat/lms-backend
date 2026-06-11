@@ -28,6 +28,7 @@ public sealed class PlatformModule : IModule
         services.AddScoped<ITenantResolver, TenantResolver>();
         services.AddScoped<ITenantAdminService, TenantAdminService>();
         services.AddScoped<ITenantFeaturesProvider, TenantFeaturesProvider>();
+        services.AddScoped<ITenantModuleAccess, TenantModuleAccess>();
         services.AddScoped<ITenantEmailSettingsProvider, TenantEmailSettingsProvider>();
         services.AddScoped<ITenantZoomSettingsProvider, TenantZoomSettingsProvider>();
         services.AddScoped<IEmailSender, SmtpEmailSender>();

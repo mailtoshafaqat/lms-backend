@@ -17,6 +17,7 @@ public sealed record TenantDetailDto(
     string? CustomDomain,
     TenantStatus Status,
     string Plan,
+    ProductProfile ProductProfile,
     bool LiveClassesEnabled,
     ZoomMode ZoomMode,
     PaymentMode PaymentMode,
@@ -30,11 +31,13 @@ public sealed record TenantDetailDto(
 public sealed record CreateTenantRequest(
     string Name,
     string Slug,
-    string Plan);
+    string Plan,
+    ProductProfile ProductProfile = ProductProfile.ExamPrep);
 
 public sealed record UpdateTenantFlagsRequest(
     TenantStatus Status,
     string Plan,
+    ProductProfile ProductProfile,
     string? CustomDomain,
     bool LiveClassesEnabled,
     ZoomMode ZoomMode,

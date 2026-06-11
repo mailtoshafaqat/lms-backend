@@ -148,6 +148,9 @@ public sealed class AuthService : IAuthService
 
         return new TenantFeaturesDto(
             f.TenantId, f.TenantName, f.Slug, f.Status.ToString(), f.Plan,
+            f.ProductProfile.ToString(),
+            f.MockExamsEnabled, f.UnitPyqTestsEnabled, f.MistakeDiaryEnabled, f.DoubtsEnabled,
+            f.SyllabusMentorEnabled,
             f.LiveClassesEnabled, f.ZoomMode.ToString(), f.PaymentMode.ToString(),
             f.AllowStudentSelfEnroll, f.AllowAdminCreateStudent,
             f.BundlePriceEditEnabled, f.McqBulkImportEnabled);

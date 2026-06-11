@@ -1,5 +1,6 @@
 using Lms.Modules.QnA.Application;
 using Lms.Shared.Auth;
+using Lms.Shared.Tenancy;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -8,6 +9,7 @@ namespace Lms.Modules.QnA.Api;
 [ApiController]
 [Route("api/v1/me/doubts")]
 [Authorize]
+[RequireProductModule(ProductModule.Doubts)]
 public sealed class DoubtsController : ControllerBase
 {
     private readonly IDoubtService _doubts;

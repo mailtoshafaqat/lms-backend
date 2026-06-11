@@ -45,18 +45,24 @@ public sealed class TenantAdminService : ITenantAdminService
         if (await _db.Tenants.AnyAsync(t => t.Slug == slug, ct))
             return Result<TenantDetailDto>.Failure("This slug is already in use.");
 
+        var profile = request.ProductProfile;
+        var seed = new TenantProfileSeed();
+        ProductProfileDefaults.Apply(seed, profile);
+
         var tenant = new Tenant
         {
             Name = name,
             Slug = slug,
             Plan = string.IsNullOrWhiteSpace(request.Plan) ? "MVP" : request.Plan.Trim(),
+            ProductProfile = profile,
             Status = TenantStatus.Trial,
-            // BYO defaults: institute manages Zoom, payments, and student provisioning.
-            LiveClassesEnabled = true,
             ZoomMode = ZoomMode.TenantManaged,
             PaymentMode = PaymentMode.TenantManaged,
-            AllowStudentSelfEnroll = false,
-            AllowAdminCreateStudent = true
+            AllowAdminCreateStudent = true,
+            LiveClassesEnabled = seed.LiveClassesEnabled,
+            SyllabusMentorEnabled = seed.SyllabusMentorEnabled,
+            McqBulkImportEnabled = seed.McqBulkImportEnabled,
+            AllowStudentSelfEnroll = seed.AllowStudentSelfEnroll
         };
 
         _db.Tenants.Add(tenant);
@@ -74,6 +80,7 @@ public sealed class TenantAdminService : ITenantAdminService
 
         tenant.Status = request.Status;
         tenant.Plan = request.Plan.Trim();
+        tenant.ProductProfile = request.ProductProfile;
         tenant.LiveClassesEnabled = request.LiveClassesEnabled;
         tenant.ZoomMode = request.ZoomMode;
         tenant.PaymentMode = request.PaymentMode;
@@ -104,7 +111,7 @@ public sealed class TenantAdminService : ITenantAdminService
         _provisioner.ResetPasswordAsync(tenantId, userId, ct);
 
     private static TenantDetailDto MapDetail(Tenant t) => new(
-        t.Id, t.Name, t.Slug, t.CustomDomain, t.Status, t.Plan,
+        t.Id, t.Name, t.Slug, t.CustomDomain, t.Status, t.Plan, t.ProductProfile,
         t.LiveClassesEnabled, t.ZoomMode, t.PaymentMode,
         t.AllowStudentSelfEnroll, t.AllowAdminCreateStudent, t.SyllabusMentorEnabled,
         t.BundlePriceEditEnabled, t.McqBulkImportEnabled, t.CreatedAt);

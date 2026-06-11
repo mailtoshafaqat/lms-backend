@@ -5,17 +5,19 @@ namespace Lms.Shared.Auth;
 
 public sealed class CurrentUser : ICurrentUser
 {
-    private readonly ClaimsPrincipal? _user;
+    private readonly IHttpContextAccessor _accessor;
 
-    public CurrentUser(IHttpContextAccessor accessor) => _user = accessor.HttpContext?.User;
+    public CurrentUser(IHttpContextAccessor accessor) => _accessor = accessor;
 
-    public Guid? UserId => _user.GetUserId();
+    private ClaimsPrincipal? User => _accessor.HttpContext?.User;
+
+    public Guid? UserId => User.GetUserId();
 
     public string? Email =>
-        _user?.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
-        ?? _user?.FindFirst("email")?.Value;
+        User?.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
+        ?? User?.FindFirst("email")?.Value;
 
-    public string? Role => _user.GetRole();
+    public string? Role => User.GetRole();
 
-    public bool IsAuthenticated => _user?.Identity?.IsAuthenticated ?? false;
+    public bool IsAuthenticated => User?.Identity?.IsAuthenticated ?? false;
 }

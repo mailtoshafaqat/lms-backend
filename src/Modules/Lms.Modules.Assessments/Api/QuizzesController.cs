@@ -1,5 +1,6 @@
 using Lms.Modules.Assessments.Application;
 using Lms.Shared.Auth;
+using Lms.Shared.Tenancy;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -27,6 +28,7 @@ public sealed class QuizzesController : ControllerBase
     }
 
     [HttpGet("units/{unitId:guid}/quizzes/{quizType}")]
+    [RequireProductModule(ProductModule.UnitPyqTests)]
     public async Task<IActionResult> GetByUnit(
         Guid unitId, string quizType, [FromQuery] string? difficulty, CancellationToken ct)
     {

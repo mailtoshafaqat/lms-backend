@@ -1,6 +1,7 @@
 using Lms.Modules.Assessments.Application;
 using Lms.Shared.Auth;
 using Lms.Shared.Courses;
+using Lms.Shared.Tenancy;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -110,6 +111,7 @@ public sealed class AdminAssessmentsController : ControllerBase
     }
 
     [HttpGet("units/{unitId:guid}/quizzes/{quizType}")]
+    [RequireProductModule(ProductModule.UnitPyqTests)]
     public async Task<IActionResult> GetUnitQuiz(Guid unitId, string quizType, CancellationToken ct)
     {
         if (!await CanManageUnit(unitId, ct)) return Forbid();
@@ -118,6 +120,7 @@ public sealed class AdminAssessmentsController : ControllerBase
     }
 
     [HttpPut("units/{unitId:guid}/quizzes/{quizType}/settings")]
+    [RequireProductModule(ProductModule.UnitPyqTests)]
     public async Task<IActionResult> UpdateUnitQuizSettings(
         Guid unitId, string quizType, [FromBody] UpdateQuizSettingsRequest req, CancellationToken ct)
     {

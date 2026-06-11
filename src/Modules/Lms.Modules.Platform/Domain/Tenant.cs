@@ -15,6 +15,8 @@ public sealed class Tenant
     public TenantStatus Status { get; set; } = TenantStatus.Trial;
     public string Plan { get; set; } = "MVP";
 
+    public ProductProfile ProductProfile { get; set; } = ProductProfile.ExamPrep;
+
     public bool LiveClassesEnabled { get; set; } = true;
     public ZoomMode ZoomMode { get; set; } = ZoomMode.TenantManaged;
     public PaymentMode PaymentMode { get; set; } = PaymentMode.TenantManaged;

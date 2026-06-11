@@ -1,5 +1,6 @@
 using Lms.Modules.Progress.Application;
 using Lms.Shared.Auth;
+using Lms.Shared.Tenancy;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -40,6 +41,7 @@ public sealed class ProgressController : ControllerBase
 
     [Authorize]
     [HttpGet("me/mistakes")]
+    [RequireProductModule(ProductModule.MistakeDiary)]
     public async Task<IActionResult> MyMistakes(CancellationToken ct)
     {
         var userId = _currentUser.UserId;
@@ -49,6 +51,7 @@ public sealed class ProgressController : ControllerBase
 
     [Authorize]
     [HttpPost("me/mistakes/{id:guid}/resolve")]
+    [RequireProductModule(ProductModule.MistakeDiary)]
     public async Task<IActionResult> ResolveMistake(Guid id, CancellationToken ct)
     {
         var userId = _currentUser.UserId;

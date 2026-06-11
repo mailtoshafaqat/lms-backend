@@ -49,6 +49,14 @@ public sealed class AdminSubjectTeachersController : ControllerBase
             subjects));
     }
 
+    [HttpGet("assignable-subjects")]
+    [Authorize(Policy = "InstituteAdmin")]
+    public async Task<IActionResult> AssignableSubjects(CancellationToken ct)
+    {
+        var userId = _currentUser.UserId ?? Guid.Empty;
+        return Ok(await _access.GetAssignedSubjectsAsync(userId, Roles.InstituteAdmin, ct));
+    }
+
     [HttpGet("subject-teachers")]
     [Authorize(Policy = "InstituteAdmin")]
     public async Task<IActionResult> ListAssignments(CancellationToken ct) =>
