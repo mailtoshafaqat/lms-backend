@@ -12,6 +12,11 @@ public interface IAdminUserService
     Task<Result<ResetStudentPasswordDto>> ResetStudentPasswordAsync(
         Guid userId, CancellationToken ct = default);
 
+    Task<StudentProfileDto?> GetStudentProfileAsync(Guid userId, CancellationToken ct = default);
+
+    Task<Result<StudentProfileDto>> UpdateStudentProfileAsync(
+        Guid userId, UpdateStudentProfileRequest request, CancellationToken ct = default);
+
     Task<Result<CreatedTeacherDto>> CreateTeacherAsync(CreateTeacherRequest request, CancellationToken ct = default);
     Task<PagedResult<TeacherListItemDto>> ListTeachersAsync(
         PagedListQuery query, CancellationToken ct = default);

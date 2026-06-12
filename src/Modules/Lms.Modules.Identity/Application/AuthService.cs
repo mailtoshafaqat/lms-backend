@@ -93,15 +93,6 @@ public sealed class AuthService : IAuthService
             return Result<AuthResponse>.Failure("Invalid email or password.");
         }
 
-        if (!Roles.IsPlatformStaff(user.Role))
-        {
-            var features = await _tenantFeatures.GetAsync(user.TenantId, ct);
-            if (features is null)
-                return Result<AuthResponse>.Failure("Institute account not found.");
-            if (features.Status == TenantStatus.Suspended)
-                return Result<AuthResponse>.Failure("This institute account is suspended. Contact support.");
-        }
-
         return await IssueAsync(user, ct);
     }
 
@@ -119,8 +110,31 @@ public sealed class AuthService : IAuthService
         return await IssueAsync(token.User, ct);
     }
 
+    private async Task<Result<AuthResponse>?> ValidateTenantAccessAsync(User user, CancellationToken ct)
+    {
+        var features = await _tenantFeatures.GetAsync(user.TenantId, ct);
+        if (features is null)
+            return Result<AuthResponse>.Failure("Institute account not found.");
+        if (features.Status == TenantStatus.Suspended)
+            return Result<AuthResponse>.Failure("This institute account is suspended. Contact support.");
+        if (TenantTrial.IsExpired(features.Status, features.TrialEndsAt)
+            && user.Role is Roles.Teacher or Roles.Student)
+        {
+            return Result<AuthResponse>.Failure(
+                "This institute is temporarily unavailable. Please contact your academy.");
+        }
+
+        return null;
+    }
+
     private async Task<Result<AuthResponse>> IssueAsync(User user, CancellationToken ct)
     {
+        if (!Roles.IsPlatformStaff(user.Role))
+        {
+            var accessError = await ValidateTenantAccessAsync(user, ct);
+            if (accessError is not null) return accessError;
+        }
+
         var (accessToken, expiresAt) = _tokens.CreateAccessToken(user);
 
         var refresh = new RefreshToken
@@ -146,6 +160,16 @@ public sealed class AuthService : IAuthService
         var f = await _tenantFeatures.GetAsync(user.TenantId, ct);
         if (f is null) return null;
 
+        DateTime? trialEndsAt = null;
+        int? trialDaysRemaining = null;
+        bool? trialExpired = null;
+        if (user.Role == Roles.InstituteAdmin && f.Status == TenantStatus.Trial)
+        {
+            trialEndsAt = f.TrialEndsAt;
+            trialDaysRemaining = TenantTrial.DaysRemaining(f.TrialEndsAt);
+            trialExpired = TenantTrial.IsExpired(f.Status, f.TrialEndsAt);
+        }
+
         return new TenantFeaturesDto(
             f.TenantId, f.TenantName, f.Slug, f.Status.ToString(), f.Plan,
             f.ProductProfile.ToString(),
@@ -153,7 +177,8 @@ public sealed class AuthService : IAuthService
             f.SyllabusMentorEnabled,
             f.LiveClassesEnabled, f.ZoomMode.ToString(), f.PaymentMode.ToString(),
             f.AllowStudentSelfEnroll, f.AllowAdminCreateStudent,
-            f.BundlePriceEditEnabled, f.McqBulkImportEnabled);
+            f.BundlePriceEditEnabled, f.McqBulkImportEnabled,
+            trialEndsAt, trialDaysRemaining, trialExpired);
     }
 
     public async Task<Result<bool>> ChangePasswordAsync(
@@ -261,5 +286,16 @@ public sealed class AuthService : IAuthService
         await _db.SaveChangesAsync(ct);
 
         return Result<bool>.Success(true);
+    }
+
+    public async Task<UserProfile?> GetProfileAsync(Guid userId, CancellationToken ct = default)
+    {
+        if (userId == Guid.Empty) return null;
+
+        var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId, ct);
+        return user is null
+            ? null
+            : new UserProfile(
+                user.Id, user.Email, user.FullName, user.Role, user.Phone, user.ProfilePictureUrl);
     }
 }

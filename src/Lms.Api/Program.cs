@@ -144,7 +144,9 @@ if (app.Environment.IsDevelopment())
 
     var coursesDb = sp.GetRequiredService<CoursesDbContext>();
     await coursesDb.Database.MigrateAsync();
+    await Lms.Modules.Courses.Application.SubjectCatalogSeeder.EnsureDefaultTenantAsync(coursesDb);
     await CourseSeeder.SeedAsync(coursesDb);
+    await Lms.Modules.Courses.Application.SubjectCatalogMigrator.MigrateUnlinkedSubjectsAsync(coursesDb);
 
     var topics = await coursesDb.Topics
         .Select(t => new ValueTuple<Guid, string>(t.Id, t.Title))
@@ -176,6 +178,16 @@ if (app.Environment.IsDevelopment())
     var platformDb = sp.GetRequiredService<PlatformDbContext>();
     await platformDb.Database.MigrateAsync();
     await PlatformSeeder.SeedAsync(platformDb);
+
+    var catalogTenants = await platformDb.Tenants.AsNoTracking()
+        .Select(t => new { t.Id, t.ProductProfile })
+        .ToListAsync();
+    foreach (var tenant in catalogTenants)
+    {
+        await Lms.Modules.Courses.Application.SubjectCatalogSeeder.SeedForTenantAsync(
+            coursesDb, tenant.Id, tenant.ProductProfile);
+    }
+    await Lms.Modules.Courses.Application.SubjectCatalogMigrator.MigrateUnlinkedSubjectsAsync(coursesDb);
 
     var liveDb = sp.GetRequiredService<LiveClassesDbContext>();
     await liveDb.Database.MigrateAsync();

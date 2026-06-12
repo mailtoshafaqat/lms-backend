@@ -55,16 +55,58 @@ public sealed class CourseAdminService : ICourseAdminService
         if (!await _db.Bundles.AnyAsync(b => b.Id == bundleId, ct))
             return Result<SubjectDto>.Failure("Bundle not found.");
 
+        if (req.SubjectDefinitionId is not Guid definitionId)
+            return Result<SubjectDto>.Failure(
+                "Pick a subject from the institute catalog. Add new subjects under Subject catalog first.");
+
+        var definition = await _db.SubjectDefinitions
+            .FirstOrDefaultAsync(d => d.Id == definitionId && d.IsActive, ct);
+        if (definition is null)
+            return Result<SubjectDto>.Failure("Catalog subject not found or inactive.");
+
+        if (await _db.Subjects.AnyAsync(
+                s => s.BundleId == bundleId && s.SubjectDefinitionId == definitionId, ct))
+            return Result<SubjectDto>.Failure(
+                $"\"{definition.DisplayName}\" is already in this batch.");
+
+        var title = definition.DisplayName;
+
         var subject = new Subject
         {
             TenantId = _tenant.TenantId,
             BundleId = bundleId,
-            Title = req.Title.Trim(),
+            SubjectDefinitionId = definition?.Id,
+            Title = title,
             Order = req.Order
         };
         _db.Subjects.Add(subject);
         await _db.SaveChangesAsync(ct);
-        return Result<SubjectDto>.Success(new SubjectDto(subject.Id, subject.Title, subject.Order, 0));
+
+        if (req.IncludeSharedContent && definition is not null)
+        {
+            var libraryUnitIds = await _db.Units
+                .Where(u => u.SubjectDefinitionId == definition.Id)
+                .OrderBy(u => u.Order)
+                .Select(u => u.Id)
+                .ToListAsync(ct);
+
+            var order = 1000;
+            foreach (var unitId in libraryUnitIds)
+            {
+                _db.SubjectSharedUnits.Add(new Domain.SubjectSharedUnit
+                {
+                    TenantId = _tenant.TenantId,
+                    SubjectId = subject.Id,
+                    UnitId = unitId,
+                    Order = order++
+                });
+            }
+
+            if (libraryUnitIds.Count > 0)
+                await _db.SaveChangesAsync(ct);
+        }
+
+        return Result<SubjectDto>.Success(await ToSubjectDtoAsync(subject.Id, ct));
     }
 
     public async Task<Result<UnitDto>> CreateUnitAsync(Guid subjectId, CreateUnitRequest req, CancellationToken ct = default)
@@ -120,11 +162,14 @@ public sealed class CourseAdminService : ICourseAdminService
         var subject = await _db.Subjects.FirstOrDefaultAsync(s => s.Id == subjectId, ct);
         if (subject is null)
             return Result<SubjectDto>.Failure("Subject not found.");
+        if (subject.SubjectDefinitionId is not null)
+            return Result<SubjectDto>.Failure(
+                "Catalog-linked subjects cannot be renamed here. Edit the name in Subject catalog.");
 
         subject.Title = title;
         await _db.SaveChangesAsync(ct);
         var unitCount = await _db.Units.CountAsync(u => u.SubjectId == subjectId, ct);
-        return Result<SubjectDto>.Success(new SubjectDto(subject.Id, subject.Title, subject.Order, unitCount));
+        return Result<SubjectDto>.Success(await ToSubjectDtoAsync(subject.Id, ct));
     }
 
     public async Task<Result<UnitDto>> UpdateUnitAsync(Guid unitId, UpdateUnitRequest req, CancellationToken ct = default)
@@ -160,6 +205,20 @@ public sealed class CourseAdminService : ICourseAdminService
 
     private static TopicDto ToTopicDto(Topic topic) =>
         new(topic.Id, topic.Title, topic.Order, topic.HasVideo, topic.McqCount, topic.FlashcardCount);
+
+    private async Task<SubjectDto> ToSubjectDtoAsync(Guid subjectId, CancellationToken ct)
+    {
+        var subject = await _db.Subjects.AsNoTracking().FirstAsync(s => s.Id == subjectId, ct);
+        var ownCount = await _db.Units.CountAsync(u => u.SubjectId == subjectId, ct);
+        var sharedCount = await _db.SubjectSharedUnits.CountAsync(l => l.SubjectId == subjectId, ct);
+        return new SubjectDto(
+            subject.Id,
+            subject.Title,
+            subject.Order,
+            ownCount + sharedCount,
+            subject.SubjectDefinitionId,
+            subject.SubjectDefinitionId is not null);
+    }
 
     public async Task<bool> DeleteBundleAsync(Guid id, CancellationToken ct = default) =>
         await DeleteAsync(_db.Bundles, id, ct);

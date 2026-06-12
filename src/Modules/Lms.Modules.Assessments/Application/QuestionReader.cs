@@ -31,4 +31,28 @@ public sealed class QuestionReader : IQuestionReader
             x.q.CorrectKey,
             x.q.Explanation)).ToList();
     }
+
+    public async Task<IReadOnlyList<QuestionSnapshot>> GetByTopicIdsAsync(
+        IEnumerable<Guid> topicIds, int take, CancellationToken ct = default)
+    {
+        var ids = topicIds.Distinct().ToList();
+        if (ids.Count == 0 || take <= 0) return [];
+
+        var rows = await _db.Questions.AsNoTracking()
+            .Join(_db.Quizzes.AsNoTracking(), q => q.QuizId, quiz => quiz.Id, (q, quiz) => new { q, quiz })
+            .Where(x => x.quiz.TopicId != null && ids.Contains(x.quiz.TopicId.Value))
+            .Take(Math.Min(take * 3, 100))
+            .ToListAsync(ct);
+
+        rows = rows.OrderBy(_ => Random.Shared.Next()).Take(take).ToList();
+
+        return rows.Select(x => new QuestionSnapshot(
+            x.q.Id,
+            x.quiz.TopicId!.Value,
+            x.quiz.Id,
+            x.q.Stem,
+            JsonSerializer.Deserialize<List<string>>(x.q.OptionsJson) ?? [],
+            x.q.CorrectKey,
+            x.q.Explanation)).ToList();
+    }
 }

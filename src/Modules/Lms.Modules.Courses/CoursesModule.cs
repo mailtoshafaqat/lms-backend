@@ -22,11 +22,16 @@ public sealed class CoursesModule : IModule
 
         services.AddScoped<ICourseService, CourseService>();
         services.AddScoped<ICourseAdminService, CourseAdminService>();
+        services.AddScoped<ISubjectDefinitionService, SubjectDefinitionService>();
         services.AddScoped<ICourseScopeReader, CourseScopeReader>();
         services.AddScoped<ISubjectAccessService, SubjectAccessService>();
         services.AddScoped<IEnrolledSubjectsReader, EnrolledSubjectsReader>();
+        services.AddScoped<ISubjectCatalogReader, SubjectCatalogReader>();
+        services.AddScoped<ISubjectCatalogProvisioner, SubjectCatalogProvisioner>();
 
         // Cross-module contract: lets other modules (Enrollment) read bundle summaries.
         services.AddScoped<IBundleCatalog, BundleCatalog>();
+        services.AddScoped<ICourseContentSearch, CourseContentSearch>();
+        services.AddScoped<ITopicFlashcardStats, TopicFlashcardStats>();
     }
 }

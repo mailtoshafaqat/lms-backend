@@ -1,4 +1,5 @@
 using Lms.Modules.Platform.Application;
+using Lms.Shared.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,9 +15,12 @@ public sealed class SupportIncidentsController : ControllerBase
     public SupportIncidentsController(IRequestIncidentService incidents) => _incidents = incidents;
 
     [HttpGet]
-    public async Task<IActionResult> Search([FromQuery] string? traceId, [FromQuery] int take = 25, CancellationToken ct = default)
+    public async Task<IActionResult> Search(
+        [FromQuery] string? traceId,
+        [FromQuery] PagedListQuery paging,
+        CancellationToken ct = default)
     {
-        var rows = await _incidents.SearchAsync(traceId, take, ct);
-        return Ok(rows);
+        var result = await _incidents.SearchAsync(traceId, paging, ct);
+        return Ok(result);
     }
 }

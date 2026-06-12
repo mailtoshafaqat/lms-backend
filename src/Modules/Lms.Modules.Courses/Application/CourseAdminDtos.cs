@@ -4,7 +4,11 @@ public sealed record CreateBundleRequest(string Title, decimal Price, int Validi
 
 public sealed record UpdateBundleRequest(decimal Price, int? ValidityDays = null);
 
-public sealed record CreateSubjectRequest(string Title, int Order);
+public sealed record CreateSubjectRequest(
+    string Title,
+    int Order,
+    Guid? SubjectDefinitionId = null,
+    bool IncludeSharedContent = false);
 
 public sealed record CreateUnitRequest(string Title, int Order);
 

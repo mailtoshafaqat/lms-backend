@@ -202,6 +202,9 @@ namespace Lms.Modules.Platform.Infrastructure.Migrations
                     b.Property<bool>("SyllabusMentorEnabled")
                         .HasColumnType("bit");
 
+                    b.Property<DateTime?>("TrialEndsAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<int>("ZoomMode")
                         .HasColumnType("int");
 

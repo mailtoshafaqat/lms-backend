@@ -9,6 +9,7 @@ public interface ITenantAdminService
     Task<TenantDetailDto?> GetAsync(Guid id, CancellationToken ct = default);
     Task<Result<TenantDetailDto>> CreateAsync(CreateTenantRequest request, CancellationToken ct = default);
     Task<Result<TenantDetailDto>> UpdateFlagsAsync(Guid id, UpdateTenantFlagsRequest request, CancellationToken ct = default);
+    Task<Result<TenantDetailDto>> ExtendTrialAsync(Guid id, CancellationToken ct = default);
     Task<Result<CreatedInstituteAdminDto>> CreateInstituteAdminAsync(
         Guid tenantId, CreateTenantAdminRequest request, CancellationToken ct = default);
     Task<Result<ResetInstituteAdminPasswordDto>> ResetInstituteAdminPasswordAsync(

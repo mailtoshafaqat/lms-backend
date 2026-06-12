@@ -22,7 +22,7 @@ public sealed class TenantFeaturesProvider : ITenantFeaturesProvider
     {
         var profile = t.ProductProfile;
         return new TenantFeatures(
-            t.Id, t.Name, t.Slug, t.Status, t.Plan, profile,
+            t.Id, t.Name, t.Slug, t.Status, t.TrialEndsAt, t.Plan, profile,
             ProductProfileModules.MockExamsEnabled(profile),
             ProductProfileModules.UnitPyqTestsEnabled(profile),
             ProductProfileModules.MistakeDiaryEnabled(profile),

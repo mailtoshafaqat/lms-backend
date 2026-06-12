@@ -49,6 +49,13 @@ public sealed class SuperAdminTenantsController : ControllerBase
         return result.Succeeded ? Ok(result.Value) : BadRequest(new { error = result.Error });
     }
 
+    [HttpPost("{id:guid}/extend-trial")]
+    public async Task<IActionResult> ExtendTrial(Guid id, CancellationToken ct)
+    {
+        var result = await _tenants.ExtendTrialAsync(id, ct);
+        return result.Succeeded ? Ok(result.Value) : BadRequest(new { error = result.Error });
+    }
+
     [HttpGet("{id:guid}/admins")]
     public async Task<IActionResult> ListAdmins(Guid id, CancellationToken ct)
     {

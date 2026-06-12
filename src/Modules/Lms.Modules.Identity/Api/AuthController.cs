@@ -52,13 +52,12 @@ public sealed class AuthController : ControllerBase
 
     [Authorize]
     [HttpGet("me")]
-    public IActionResult Me()
+    public async Task<IActionResult> Me(CancellationToken ct)
     {
-        var profile = new UserProfile(
-            Guid.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var id) ? id : Guid.Empty,
-            User.FindFirst(ClaimTypes.Email)?.Value ?? string.Empty,
-            User.Identity?.Name ?? string.Empty,
-            User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty);
-        return Ok(profile);
+        var userId = Guid.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var id)
+            ? id
+            : Guid.Empty;
+        var profile = await _auth.GetProfileAsync(userId, ct);
+        return profile is null ? Unauthorized() : Ok(profile);
     }
 }

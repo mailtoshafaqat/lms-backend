@@ -41,20 +41,44 @@ public sealed class SubjectAccessService : ISubjectAccessService
         if (HasInstituteWideAccess(role)) return true;
         if (role != Roles.Teacher) return false;
 
-        return await _db.SubjectTeachers.AnyAsync(
-            a => a.UserId == userId && a.SubjectId == subjectId, ct);
+        if (await _db.SubjectTeachers.AnyAsync(
+                a => a.UserId == userId && a.SubjectId == subjectId, ct))
+            return true;
+
+        var definitionId = await _db.Subjects
+            .Where(s => s.Id == subjectId)
+            .Select(s => s.SubjectDefinitionId)
+            .FirstOrDefaultAsync(ct);
+
+        return definitionId is not null
+            && await IsTeacherAssignedToDefinitionAsync(userId, definitionId.Value, ct);
     }
 
     public Task<bool> IsTeacherAssignedAsync(Guid teacherUserId, Guid subjectId, CancellationToken ct = default) =>
-        _db.SubjectTeachers.AnyAsync(
-            a => a.UserId == teacherUserId && a.SubjectId == subjectId, ct);
+        CanManageSubjectAsync(teacherUserId, Roles.Teacher, subjectId, ct);
 
     public async Task<IReadOnlyList<Guid>> GetTeacherIdsForSubjectAsync(
-        Guid subjectId, CancellationToken ct = default) =>
-        await _db.SubjectTeachers.AsNoTracking()
+        Guid subjectId, CancellationToken ct = default)
+    {
+        var direct = await _db.SubjectTeachers.AsNoTracking()
             .Where(a => a.SubjectId == subjectId)
             .Select(a => a.UserId)
             .ToListAsync(ct);
+
+        var definitionId = await _db.Subjects
+            .Where(s => s.Id == subjectId)
+            .Select(s => s.SubjectDefinitionId)
+            .FirstOrDefaultAsync(ct);
+
+        if (definitionId is null) return direct;
+
+        var catalog = await _db.SubjectDefinitionTeachers.AsNoTracking()
+            .Where(a => a.SubjectDefinitionId == definitionId)
+            .Select(a => a.UserId)
+            .ToListAsync(ct);
+
+        return direct.Concat(catalog).Distinct().ToList();
+    }
 
     public async Task<bool> CanManageUnitAsync(
         Guid userId, string role, Guid unitId, CancellationToken ct = default)
@@ -62,13 +86,33 @@ public sealed class SubjectAccessService : ISubjectAccessService
         if (HasInstituteWideAccess(role)) return true;
         if (role != Roles.Teacher) return false;
 
-        var subjectId = await _db.Units
+        var unit = await _db.Units.AsNoTracking()
             .Where(u => u.Id == unitId)
-            .Select(u => u.SubjectId)
+            .Select(u => new { u.SubjectId, u.SubjectDefinitionId })
             .FirstOrDefaultAsync(ct);
 
-        return subjectId != Guid.Empty
-            && await IsTeacherAssignedAsync(userId, subjectId, ct);
+        if (unit is null) return false;
+
+        if (unit.SubjectDefinitionId is Guid defId
+            && await IsTeacherAssignedToDefinitionAsync(userId, defId, ct))
+            return true;
+
+        if (unit.SubjectId is Guid subjectId
+            && await CanManageSubjectAsync(userId, role, subjectId, ct))
+            return true;
+
+        var linkedSubjectIds = await _db.SubjectSharedUnits
+            .Where(l => l.UnitId == unitId)
+            .Select(l => l.SubjectId)
+            .ToListAsync(ct);
+
+        foreach (var linkedSubjectId in linkedSubjectIds)
+        {
+            if (await CanManageSubjectAsync(userId, role, linkedSubjectId, ct))
+                return true;
+        }
+
+        return false;
     }
 
     public async Task<bool> CanManageTopicAsync(
@@ -77,14 +121,13 @@ public sealed class SubjectAccessService : ISubjectAccessService
         if (HasInstituteWideAccess(role)) return true;
         if (role != Roles.Teacher) return false;
 
-        var subjectId = await _db.Topics
+        var unitId = await _db.Topics
             .Where(t => t.Id == topicId)
-            .Select(t => t.Unit!.SubjectId)
+            .Select(t => t.UnitId)
             .FirstOrDefaultAsync(ct);
 
-        return subjectId != Guid.Empty
-            && await _db.SubjectTeachers.AnyAsync(
-                a => a.UserId == userId && a.SubjectId == subjectId, ct);
+        return unitId != Guid.Empty
+            && await CanManageUnitAsync(userId, role, unitId, ct);
     }
 
     public async Task<IReadOnlyList<AssignedSubjectDto>> GetAssignedSubjectsAsync(
@@ -96,13 +139,21 @@ public sealed class SubjectAccessService : ISubjectAccessService
         {
             if (role != Roles.Teacher) return [];
 
-            var ids = await _db.SubjectTeachers
+            var directIds = await _db.SubjectTeachers
                 .Where(a => a.UserId == userId)
                 .Select(a => a.SubjectId)
                 .ToListAsync(ct);
 
-            if (ids.Count == 0) return [];
-            query = query.Where(s => ids.Contains(s.Id));
+            var catalogIds = await _db.SubjectDefinitionTeachers
+                .Where(a => a.UserId == userId)
+                .Select(a => a.SubjectDefinitionId)
+                .ToListAsync(ct);
+
+            if (directIds.Count == 0 && catalogIds.Count == 0) return [];
+
+            query = query.Where(s =>
+                directIds.Contains(s.Id)
+                || (s.SubjectDefinitionId != null && catalogIds.Contains(s.SubjectDefinitionId.Value)));
         }
 
         return await query
@@ -111,25 +162,82 @@ public sealed class SubjectAccessService : ISubjectAccessService
                 s.Id,
                 s.Title,
                 s.BundleId,
-                s.Bundle!.Title))
+                s.Bundle!.Title,
+                s.SubjectDefinitionId,
+                s.SubjectDefinition != null ? s.SubjectDefinition.DisplayName : null))
             .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<CatalogSubjectGroupDto>> GetCatalogSubjectGroupsAsync(
+        CancellationToken ct = default)
+    {
+        var definitions = await _db.SubjectDefinitions.AsNoTracking()
+            .Where(d => d.IsActive)
+            .OrderBy(d => d.SortOrder)
+            .ToListAsync(ct);
+
+        var placements = await _db.Subjects.AsNoTracking()
+            .OrderBy(s => s.Order)
+            .Select(s => new AssignedSubjectDto(
+                s.Id,
+                s.Title,
+                s.BundleId,
+                s.Bundle!.Title,
+                s.SubjectDefinitionId,
+                s.SubjectDefinition != null ? s.SubjectDefinition.DisplayName : null))
+            .ToListAsync(ct);
+
+        var unlinked = placements.Where(p => p.SubjectDefinitionId is null).ToList();
+        var groups = definitions
+            .Select(d => new CatalogSubjectGroupDto(
+                d.Id,
+                d.Code,
+                d.DisplayName,
+                placements.Where(p => p.SubjectDefinitionId == d.Id).ToList()))
+            .ToList();
+
+        if (unlinked.Count > 0)
+        {
+            groups.Add(new CatalogSubjectGroupDto(
+                Guid.Empty,
+                "legacy",
+                "Legacy (no catalog link)",
+                unlinked));
+        }
+
+        return groups;
     }
 
     public async Task<IReadOnlyList<TeacherSubjectAssignmentDto>> ListAssignmentsAsync(
         CancellationToken ct = default)
     {
-        var rows = await _db.SubjectTeachers
+        var subjectRows = await _db.SubjectTeachers
             .GroupBy(a => a.UserId)
             .Select(g => new { UserId = g.Key, SubjectIds = g.Select(x => x.SubjectId).ToList() })
             .ToListAsync(ct);
 
-        return rows
-            .Select(r => new TeacherSubjectAssignmentDto(r.UserId, r.SubjectIds))
+        var catalogRows = await _db.SubjectDefinitionTeachers
+            .GroupBy(a => a.UserId)
+            .Select(g => new { UserId = g.Key, DefinitionIds = g.Select(x => x.SubjectDefinitionId).ToList() })
+            .ToListAsync(ct);
+
+        var userIds = subjectRows.Select(r => r.UserId)
+            .Concat(catalogRows.Select(r => r.UserId))
+            .Distinct();
+
+        return userIds
+            .Select(userId => new TeacherSubjectAssignmentDto(
+                userId,
+                subjectRows.FirstOrDefault(r => r.UserId == userId)?.SubjectIds ?? [],
+                catalogRows.FirstOrDefault(r => r.UserId == userId)?.DefinitionIds ?? []))
             .ToList();
     }
 
     public async Task<Result> SetTeacherSubjectsAsync(
-        Guid teacherUserId, IReadOnlyList<Guid> subjectIds, CancellationToken ct = default)
+        Guid teacherUserId,
+        IReadOnlyList<Guid> subjectIds,
+        IReadOnlyList<Guid> subjectDefinitionIds,
+        CancellationToken ct = default)
     {
         if (teacherUserId == Guid.Empty)
             return Result.Failure("Teacher is required.");
@@ -137,21 +245,29 @@ public sealed class SubjectAccessService : ISubjectAccessService
         if (!await _users.IsActiveTeacherAsync(teacherUserId, ct))
             return Result.Failure("User is not an active teacher on this institute.");
 
-        var distinct = subjectIds.Distinct().ToList();
-        if (distinct.Count > 0)
+        var distinctSubjects = subjectIds.Distinct().ToList();
+        if (distinctSubjects.Count > 0)
         {
-            var found = await _db.Subjects.CountAsync(s => distinct.Contains(s.Id), ct);
-            if (found != distinct.Count)
+            var found = await _db.Subjects.CountAsync(s => distinctSubjects.Contains(s.Id), ct);
+            if (found != distinctSubjects.Count)
                 return Result.Failure("One or more subjects were not found.");
         }
 
-        var existing = await _db.SubjectTeachers
+        var distinctDefinitions = subjectDefinitionIds.Distinct().ToList();
+        if (distinctDefinitions.Count > 0)
+        {
+            var foundDefs = await _db.SubjectDefinitions
+                .CountAsync(d => distinctDefinitions.Contains(d.Id), ct);
+            if (foundDefs != distinctDefinitions.Count)
+                return Result.Failure("One or more catalog subjects were not found.");
+        }
+
+        var existingSubjects = await _db.SubjectTeachers
             .Where(a => a.UserId == teacherUserId)
             .ToListAsync(ct);
+        _db.SubjectTeachers.RemoveRange(existingSubjects);
 
-        _db.SubjectTeachers.RemoveRange(existing);
-
-        foreach (var subjectId in distinct)
+        foreach (var subjectId in distinctSubjects)
         {
             _db.SubjectTeachers.Add(new SubjectTeacher
             {
@@ -161,7 +277,27 @@ public sealed class SubjectAccessService : ISubjectAccessService
             });
         }
 
+        var existingDefinitions = await _db.SubjectDefinitionTeachers
+            .Where(a => a.UserId == teacherUserId)
+            .ToListAsync(ct);
+        _db.SubjectDefinitionTeachers.RemoveRange(existingDefinitions);
+
+        foreach (var definitionId in distinctDefinitions)
+        {
+            _db.SubjectDefinitionTeachers.Add(new SubjectDefinitionTeacher
+            {
+                TenantId = _tenant.TenantId,
+                UserId = teacherUserId,
+                SubjectDefinitionId = definitionId
+            });
+        }
+
         await _db.SaveChangesAsync(ct);
         return Result.Success();
     }
+
+    private Task<bool> IsTeacherAssignedToDefinitionAsync(
+        Guid userId, Guid definitionId, CancellationToken ct) =>
+        _db.SubjectDefinitionTeachers.AnyAsync(
+            a => a.UserId == userId && a.SubjectDefinitionId == definitionId, ct);
 }

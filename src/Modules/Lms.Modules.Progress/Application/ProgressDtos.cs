@@ -58,3 +58,33 @@ public sealed record StudentDetailDto(
     StudentDoubtSummaryDto Doubts,
     StudentMistakeSummaryDto Mistakes,
     DateTime? LastActiveAt);
+
+public sealed record SubjectAccuracyDto(
+    Guid SubjectId,
+    string SubjectTitle,
+    int Accuracy,
+    int QuizzesCompleted);
+
+public sealed record WeeklyScoreDto(
+    string DayLabel,
+    int Accuracy,
+    int Attempts);
+
+public sealed record BundleProgressDto(
+    Guid BundleId,
+    string BundleTitle,
+    int TopicsCompleted,
+    int TopicsTotal,
+    int PercentComplete);
+
+public sealed record DashboardOverviewDto(
+    int OverallAccuracy,
+    int AccuracyChangeThisWeek,
+    int McqsAttemptedThisMonth,
+    int? InstituteRank,
+    int InstituteStudentCount,
+    int PracticeStreakDays,
+    IReadOnlyList<SubjectAccuracyDto> SubjectAccuracy,
+    IReadOnlyList<WeeklyScoreDto> WeeklyTrend,
+    IReadOnlyList<BundleProgressDto> BundleProgress,
+    SubjectAccuracyDto? WeakestSubject);

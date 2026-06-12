@@ -57,6 +57,11 @@ public sealed class AdminSubjectTeachersController : ControllerBase
         return Ok(await _access.GetAssignedSubjectsAsync(userId, Roles.InstituteAdmin, ct));
     }
 
+    [HttpGet("catalog-subject-groups")]
+    [Authorize(Policy = "InstituteAdmin")]
+    public async Task<IActionResult> CatalogSubjectGroups(CancellationToken ct) =>
+        Ok(await _access.GetCatalogSubjectGroupsAsync(ct));
+
     [HttpGet("subject-teachers")]
     [Authorize(Policy = "InstituteAdmin")]
     public async Task<IActionResult> ListAssignments(CancellationToken ct) =>
@@ -67,12 +72,15 @@ public sealed class AdminSubjectTeachersController : ControllerBase
     public async Task<IActionResult> SetSubjects(
         Guid userId, [FromBody] SetTeacherSubjectsRequest req, CancellationToken ct)
     {
-        var result = await _access.SetTeacherSubjectsAsync(userId, req.SubjectIds, ct);
+        var result = await _access.SetTeacherSubjectsAsync(
+            userId, req.SubjectIds, req.SubjectDefinitionIds ?? [], ct);
         return result.Succeeded ? Ok(new { saved = true }) : BadRequest(new { error = result.Error });
     }
 }
 
-public sealed record SetTeacherSubjectsRequest(IReadOnlyList<Guid> SubjectIds);
+public sealed record SetTeacherSubjectsRequest(
+    IReadOnlyList<Guid> SubjectIds,
+    IReadOnlyList<Guid>? SubjectDefinitionIds = null);
 
 public sealed record AdminProfileDto(
     Guid UserId,

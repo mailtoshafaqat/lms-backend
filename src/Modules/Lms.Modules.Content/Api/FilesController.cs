@@ -40,12 +40,13 @@ public sealed class FilesController : ControllerBase
         if (file is null || file.Length == 0) return BadRequest(new { error = "No file uploaded." });
 
         var safeFolder = string.IsNullOrWhiteSpace(folder) ? "uploads" : folder.Trim('/');
-        if (safeFolder.Equals("branding", StringComparison.OrdinalIgnoreCase))
+        if (safeFolder.Equals("branding", StringComparison.OrdinalIgnoreCase)
+            || safeFolder.Equals("students", StringComparison.OrdinalIgnoreCase))
         {
             if (file.Length > 2 * 1024 * 1024)
-                return BadRequest(new { error = "Logo must be 2 MB or smaller." });
+                return BadRequest(new { error = "Image must be 2 MB or smaller." });
             if (!BrandingImageTypes.Contains(file.ContentType))
-                return BadRequest(new { error = "Logo must be PNG, JPEG, WebP, GIF, or SVG." });
+                return BadRequest(new { error = "Image must be PNG, JPEG, WebP, GIF, or SVG." });
         }
 
         var key = $"{safeFolder}/{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";

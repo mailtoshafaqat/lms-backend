@@ -14,6 +14,16 @@ public sealed class User : TenantEntity
 {
     public string Email { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
+
+    /// <summary>Student contact number (set by institute admin).</summary>
+    public string? Phone { get; set; }
+
+    /// <summary>Public URL path e.g. /api/v1/files/students/…</summary>
+    public string? ProfilePictureUrl { get; set; }
+
+    /// <summary>Internal admin notes about the student (not shown to the student).</summary>
+    public string? ProfileNotes { get; set; }
+
     public string? PasswordHash { get; set; }
     public string Role { get; set; } = Roles.Student;
     public AuthProvider Provider { get; set; } = AuthProvider.Local;

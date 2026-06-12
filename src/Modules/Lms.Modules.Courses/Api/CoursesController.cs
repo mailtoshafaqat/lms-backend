@@ -1,4 +1,8 @@
 using Lms.Modules.Courses.Application;
+using Lms.Shared.Auth;
+using Lms.Shared.Courses;
+using Lms.Shared.Enrollments;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Lms.Modules.Courses.Api;
@@ -8,8 +12,21 @@ namespace Lms.Modules.Courses.Api;
 public sealed class CoursesController : ControllerBase
 {
     private readonly ICourseService _courses;
+    private readonly ICourseContentSearch _search;
+    private readonly IEnrollmentReader _enrollments;
+    private readonly ICurrentUser _currentUser;
 
-    public CoursesController(ICourseService courses) => _courses = courses;
+    public CoursesController(
+        ICourseService courses,
+        ICourseContentSearch search,
+        IEnrollmentReader enrollments,
+        ICurrentUser currentUser)
+    {
+        _courses = courses;
+        _search = search;
+        _enrollments = enrollments;
+        _currentUser = currentUser;
+    }
 
     [HttpGet("bundles")]
     public async Task<IActionResult> GetBundles(CancellationToken ct) =>
@@ -33,4 +50,19 @@ public sealed class CoursesController : ControllerBase
     [HttpGet("topics/recent")]
     public async Task<IActionResult> GetRecentTopics([FromQuery] int take, CancellationToken ct) =>
         Ok(await _courses.GetRecentTopicsAsync(take <= 0 ? 3 : take, ct));
+
+    [Authorize]
+    [HttpGet("search")]
+    public async Task<IActionResult> SearchContent([FromQuery] string q, [FromQuery] int take = 20, CancellationToken ct = default)
+    {
+        IReadOnlyList<Guid>? bundleIds = null;
+        var userId = _currentUser.UserId;
+        if (userId is not null && _currentUser.Role == Roles.Student)
+        {
+            var enrolled = await _enrollments.GetActiveBundleIdsAsync(userId.Value, ct);
+            if (enrolled.Count > 0) bundleIds = enrolled;
+        }
+
+        return Ok(await _search.SearchAsync(q, bundleIds, take, ct));
+    }
 }

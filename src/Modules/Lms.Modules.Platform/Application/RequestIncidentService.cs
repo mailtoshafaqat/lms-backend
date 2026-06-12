@@ -1,5 +1,6 @@
 using Lms.Modules.Platform.Domain;
 using Lms.Modules.Platform.Infrastructure;
+using Lms.Shared.Common;
 using Microsoft.EntityFrameworkCore;
 
 namespace Lms.Modules.Platform.Application;
@@ -33,23 +34,24 @@ public sealed class RequestIncidentService : IRequestIncidentService
         await _db.SaveChangesAsync(ct);
     }
 
-    public async Task<IReadOnlyList<RequestIncidentDto>> SearchAsync(
-        string? traceId, int take = 25, CancellationToken ct = default)
+    public async Task<PagedResult<RequestIncidentDto>> SearchAsync(
+        string? traceId, PagedListQuery paging, CancellationToken ct = default)
     {
-        var size = take is < 1 or > 100 ? 25 : take;
-        var query = _db.RequestIncidents.AsNoTracking().OrderByDescending(i => i.CreatedAt);
+        IQueryable<RequestIncident> query = _db.RequestIncidents.AsNoTracking();
 
         if (!string.IsNullOrWhiteSpace(traceId))
         {
             var normalized = traceId.Trim();
-            query = query.Where(i => i.TraceId.Contains(normalized))
-                .OrderByDescending(i => i.CreatedAt);
+            query = query.Where(i => i.TraceId.Contains(normalized));
         }
 
-        return await query.Take(size).Select(i => new RequestIncidentDto(
-            i.Id, i.TraceId, i.Method, i.Path, i.StatusCode, i.ErrorMessage, i.ExceptionType,
-            i.ExceptionDetail, i.TenantId, i.TenantSlug, i.UserId, i.UserEmail, i.DurationMs, i.CreatedAt))
-            .ToListAsync(ct);
+        query = query.OrderByDescending(i => i.CreatedAt);
+
+        return await query
+            .Select(i => new RequestIncidentDto(
+                i.Id, i.TraceId, i.Method, i.Path, i.StatusCode, i.ErrorMessage, i.ExceptionType,
+                i.ExceptionDetail, i.TenantId, i.TenantSlug, i.UserId, i.UserEmail, i.DurationMs, i.CreatedAt))
+            .ToPagedResultAsync(paging, ct);
     }
 
     private static string? Truncate(string? value, int max) =>

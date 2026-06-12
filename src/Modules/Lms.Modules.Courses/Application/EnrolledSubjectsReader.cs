@@ -26,7 +26,13 @@ public sealed class EnrolledSubjectsReader : IEnrolledSubjectsReader
         return await _db.Subjects.AsNoTracking()
             .Where(s => bundleIds.Contains(s.BundleId))
             .OrderBy(s => s.Order)
-            .Select(s => new AssignedSubjectDto(s.Id, s.Title, s.BundleId, s.Bundle!.Title))
+            .Select(s => new AssignedSubjectDto(
+                s.Id,
+                s.Title,
+                s.BundleId,
+                s.Bundle!.Title,
+                s.SubjectDefinitionId,
+                s.SubjectDefinition != null ? s.SubjectDefinition.DisplayName : null))
             .ToListAsync(ct);
     }
 }

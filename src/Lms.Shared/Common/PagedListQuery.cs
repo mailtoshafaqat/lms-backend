@@ -9,6 +9,9 @@ public class PagedListQuery
     public string? SortBy { get; set; }
     public string? SortDir { get; set; }
 
+    /// <summary>Filter students enrolled in bundles containing a batch subject linked to this catalog entry.</summary>
+    public Guid? SubjectDefinitionId { get; set; }
+
     public int NormalizedPage => Page < 1 ? 1 : Page;
 
     public int NormalizedPageSize => PageSize switch

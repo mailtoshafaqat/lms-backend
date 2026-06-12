@@ -8,6 +8,7 @@ public sealed record TenantListItemDto(
     string Slug,
     TenantStatus Status,
     string Plan,
+    DateTime? TrialEndsAt,
     DateTime CreatedAt);
 
 public sealed record TenantDetailDto(
@@ -26,6 +27,7 @@ public sealed record TenantDetailDto(
     bool SyllabusMentorEnabled,
     bool BundlePriceEditEnabled,
     bool McqBulkImportEnabled,
+    DateTime? TrialEndsAt,
     DateTime CreatedAt);
 
 public sealed record CreateTenantRequest(
@@ -46,6 +48,7 @@ public sealed record UpdateTenantFlagsRequest(
     bool AllowAdminCreateStudent,
     bool SyllabusMentorEnabled,
     bool BundlePriceEditEnabled,
-    bool McqBulkImportEnabled);
+    bool McqBulkImportEnabled,
+    DateTime? TrialEndsAt = null);
 
 public sealed record CreateTenantAdminRequest(string FullName, string Email);

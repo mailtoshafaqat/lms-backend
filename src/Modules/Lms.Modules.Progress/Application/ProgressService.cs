@@ -219,6 +219,157 @@ public sealed class ProgressService : IProgressService
             lastActive == default ? null : lastActive));
     }
 
+    public async Task<DashboardOverviewDto> GetDashboardOverviewAsync(
+        Guid userId, CancellationToken ct = default)
+    {
+        var results = await _db.QuizResults.AsNoTracking()
+            .Where(r => r.UserId == userId)
+            .ToListAsync(ct);
+
+        var now = DateTime.UtcNow;
+        var monthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var weekStart = now.Date.AddDays(-6);
+        var prevWeekStart = now.Date.AddDays(-13);
+
+        var bestPerQuiz = results
+            .GroupBy(r => r.QuizId)
+            .Select(g => g.OrderByDescending(x => x.Percentage).ThenByDescending(x => x.SubmittedAt).First())
+            .ToList();
+
+        var overallAccuracy = bestPerQuiz.Count == 0
+            ? 0
+            : (int)Math.Round(bestPerQuiz.Average(r => r.Percentage));
+
+        var thisWeekAttempts = results.Where(r => r.SubmittedAt >= weekStart).ToList();
+        var prevWeekAttempts = results
+            .Where(r => r.SubmittedAt >= prevWeekStart && r.SubmittedAt < weekStart)
+            .ToList();
+
+        static int AvgPct(IReadOnlyList<Domain.QuizResult> rows) =>
+            rows.Count == 0 ? 0 : (int)Math.Round(rows.Average(r => r.Percentage));
+
+        var accuracyChange = AvgPct(thisWeekAttempts) - AvgPct(prevWeekAttempts);
+
+        var mcqsThisMonth = results
+            .Where(r => r.SubmittedAt >= monthStart)
+            .Sum(r => r.Total);
+
+        var activityDays = results
+            .Select(r => r.SubmittedAt.Date)
+            .Distinct()
+            .OrderByDescending(d => d)
+            .ToList();
+
+        var practiceStreak = ComputeStreak(activityDays, now.Date);
+
+        var topicIds = results.Select(r => r.TopicId).Distinct().ToList();
+        var topicScopes = await _scope.GetTopicScopesAsync(topicIds, ct);
+
+        var subjectAccuracy = bestPerQuiz
+            .Where(r => topicScopes.ContainsKey(r.TopicId))
+            .GroupBy(r => topicScopes[r.TopicId].SubjectId)
+            .Select(g =>
+            {
+                var scope = topicScopes[g.First().TopicId];
+                var quizzes = g.ToList();
+                return new SubjectAccuracyDto(
+                    g.Key,
+                    scope.SubjectTitle,
+                    (int)Math.Round(quizzes.Average(x => x.Percentage)),
+                    quizzes.Count);
+            })
+            .OrderByDescending(s => s.Accuracy)
+            .ToList();
+
+        var weakestSubject = subjectAccuracy.Count == 0
+            ? null
+            : subjectAccuracy.MinBy(s => s.Accuracy);
+
+        var weeklyTrend = Enumerable.Range(0, 7)
+            .Select(offset =>
+            {
+                var day = now.Date.AddDays(-6 + offset);
+                var dayResults = results.Where(r => r.SubmittedAt.Date == day).ToList();
+                return new WeeklyScoreDto(
+                    day.ToString("ddd"),
+                    AvgPct(dayResults),
+                    dayResults.Count);
+            })
+            .ToList();
+
+        var perQuizBestAll = await _db.QuizResults.AsNoTracking()
+            .GroupBy(r => new { r.UserId, r.QuizId })
+            .Select(g => new { g.Key.UserId, Best = g.Max(x => x.Score) })
+            .ToListAsync(ct);
+
+        var instituteTotals = perQuizBestAll
+            .GroupBy(x => x.UserId)
+            .Select(g => new { UserId = g.Key, Points = g.Sum(x => x.Best) })
+            .OrderByDescending(x => x.Points)
+            .ToList();
+
+        var instituteStudentCount = instituteTotals.Count;
+        int? instituteRank = null;
+        if (instituteTotals.Count > 0)
+        {
+            var idx = instituteTotals.FindIndex(x => x.UserId == userId);
+            if (idx >= 0) instituteRank = idx + 1;
+        }
+
+        var enrollments = await _enrollments.GetActiveEnrollmentsAsync(userId, ct);
+        var bundleIds = enrollments.Select(e => e.BundleId).ToList();
+        var topicCounts = await _scope.GetTopicCountsByBundleAsync(bundleIds, ct);
+
+        var topicsAttemptedByBundle = new Dictionary<Guid, HashSet<Guid>>();
+        foreach (var bundleId in bundleIds)
+            topicsAttemptedByBundle[bundleId] = [];
+
+        foreach (var result in results)
+        {
+            if (!topicScopes.TryGetValue(result.TopicId, out var scope)) continue;
+            if (topicsAttemptedByBundle.TryGetValue(scope.BundleId, out var set))
+                set.Add(result.TopicId);
+        }
+
+        var bundleProgress = enrollments.Select(e =>
+        {
+            var total = topicCounts.TryGetValue(e.BundleId, out var count) ? count : 0;
+            var completed = topicsAttemptedByBundle.TryGetValue(e.BundleId, out var set) ? set.Count : 0;
+            var pct = total == 0 ? 0 : (int)Math.Round(100.0 * completed / total);
+            return new BundleProgressDto(e.BundleId, e.BundleTitle, completed, total, pct);
+        }).ToList();
+
+        return new DashboardOverviewDto(
+            overallAccuracy,
+            accuracyChange,
+            mcqsThisMonth,
+            instituteRank,
+            instituteStudentCount,
+            practiceStreak,
+            subjectAccuracy,
+            weeklyTrend,
+            bundleProgress,
+            weakestSubject);
+    }
+
+    private static int ComputeStreak(IReadOnlyList<DateTime> activityDaysDescending, DateTime todayUtc)
+    {
+        if (activityDaysDescending.Count == 0) return 0;
+
+        var daySet = activityDaysDescending.ToHashSet();
+        var cursor = daySet.Contains(todayUtc) ? todayUtc : todayUtc.AddDays(-1);
+        if (!daySet.Contains(cursor)) return 0;
+
+        var streak = 0;
+        while (daySet.Contains(cursor))
+        {
+            streak++;
+            cursor = cursor.AddDays(-1);
+        }
+
+        return streak;
+    }
+
     private static StudentSubjectProgressDto BuildStudentProgress(
         Guid studentId,
         IReadOnlyDictionary<Guid, string> names,

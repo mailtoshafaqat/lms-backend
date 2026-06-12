@@ -72,6 +72,9 @@ namespace Lms.Modules.Courses.Infrastructure.Migrations
                     b.Property<int>("Order")
                         .HasColumnType("int");
 
+                    b.Property<Guid?>("SubjectDefinitionId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
 
@@ -87,7 +90,116 @@ namespace Lms.Modules.Courses.Infrastructure.Migrations
 
                     b.HasIndex("BundleId");
 
+                    b.HasIndex("SubjectDefinitionId");
+
                     b.ToTable("Subjects", "courses");
+                });
+
+            modelBuilder.Entity("Lms.Modules.Courses.Domain.SubjectDefinition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("Category")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("SubjectDefinitions", "courses");
+                });
+
+            modelBuilder.Entity("Lms.Modules.Courses.Domain.SubjectDefinitionTeacher", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("SubjectDefinitionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("SubjectDefinitionId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("SubjectDefinitionTeachers", "courses");
+                });
+
+            modelBuilder.Entity("Lms.Modules.Courses.Domain.SubjectSharedUnit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("SubjectId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("UnitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UnitId");
+
+                    b.HasIndex("SubjectId", "UnitId")
+                        .IsUnique();
+
+                    b.ToTable("SubjectSharedUnits", "courses");
                 });
 
             modelBuilder.Entity("Lms.Modules.Courses.Domain.SubjectTeacher", b =>
@@ -175,7 +287,10 @@ namespace Lms.Modules.Courses.Infrastructure.Migrations
                     b.Property<int>("Order")
                         .HasColumnType("int");
 
-                    b.Property<Guid>("SubjectId")
+                    b.Property<Guid?>("SubjectDefinitionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("SubjectId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("TenantId")
@@ -191,6 +306,8 @@ namespace Lms.Modules.Courses.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("SubjectDefinitionId");
+
                     b.HasIndex("SubjectId");
 
                     b.ToTable("Units", "courses");
@@ -204,7 +321,44 @@ namespace Lms.Modules.Courses.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Lms.Modules.Courses.Domain.SubjectDefinition", "SubjectDefinition")
+                        .WithMany("BatchSubjects")
+                        .HasForeignKey("SubjectDefinitionId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Bundle");
+
+                    b.Navigation("SubjectDefinition");
+                });
+
+            modelBuilder.Entity("Lms.Modules.Courses.Domain.SubjectDefinitionTeacher", b =>
+                {
+                    b.HasOne("Lms.Modules.Courses.Domain.SubjectDefinition", "SubjectDefinition")
+                        .WithMany("Teachers")
+                        .HasForeignKey("SubjectDefinitionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SubjectDefinition");
+                });
+
+            modelBuilder.Entity("Lms.Modules.Courses.Domain.SubjectSharedUnit", b =>
+                {
+                    b.HasOne("Lms.Modules.Courses.Domain.Subject", "Subject")
+                        .WithMany("SharedUnitLinks")
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Lms.Modules.Courses.Domain.Unit", "Unit")
+                        .WithMany()
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Subject");
+
+                    b.Navigation("Unit");
                 });
 
             modelBuilder.Entity("Lms.Modules.Courses.Domain.SubjectTeacher", b =>
@@ -231,13 +385,18 @@ namespace Lms.Modules.Courses.Infrastructure.Migrations
 
             modelBuilder.Entity("Lms.Modules.Courses.Domain.Unit", b =>
                 {
+                    b.HasOne("Lms.Modules.Courses.Domain.SubjectDefinition", "SubjectDefinition")
+                        .WithMany("LibraryUnits")
+                        .HasForeignKey("SubjectDefinitionId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b.HasOne("Lms.Modules.Courses.Domain.Subject", "Subject")
                         .WithMany("Units")
-                        .HasForeignKey("SubjectId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("SubjectId");
 
                     b.Navigation("Subject");
+
+                    b.Navigation("SubjectDefinition");
                 });
 
             modelBuilder.Entity("Lms.Modules.Courses.Domain.Bundle", b =>
@@ -247,7 +406,18 @@ namespace Lms.Modules.Courses.Infrastructure.Migrations
 
             modelBuilder.Entity("Lms.Modules.Courses.Domain.Subject", b =>
                 {
+                    b.Navigation("SharedUnitLinks");
+
                     b.Navigation("Units");
+                });
+
+            modelBuilder.Entity("Lms.Modules.Courses.Domain.SubjectDefinition", b =>
+                {
+                    b.Navigation("BatchSubjects");
+
+                    b.Navigation("LibraryUnits");
+
+                    b.Navigation("Teachers");
                 });
 
             modelBuilder.Entity("Lms.Modules.Courses.Domain.Unit", b =>

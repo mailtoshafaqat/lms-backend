@@ -21,8 +21,15 @@ public sealed class AdminUsersController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> List([FromQuery] PagedListQuery query, CancellationToken ct) =>
-        Ok(await _users.ListStudentsAsync(query, ct));
+    public async Task<IActionResult> List(
+        [FromQuery] PagedListQuery query,
+        [FromQuery] Guid? subjectDefinitionId,
+        CancellationToken ct)
+    {
+        if (subjectDefinitionId is Guid id)
+            query.SubjectDefinitionId = id;
+        return Ok(await _users.ListStudentsAsync(query, ct));
+    }
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateStudentRequest req, CancellationToken ct)
@@ -52,6 +59,21 @@ public sealed class AdminUsersController : ControllerBase
     public async Task<IActionResult> ResetPassword(Guid userId, CancellationToken ct)
     {
         var result = await _users.ResetStudentPasswordAsync(userId, ct);
+        return result.Succeeded ? Ok(result.Value) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpGet("{userId:guid}/profile")]
+    public async Task<IActionResult> GetProfile(Guid userId, CancellationToken ct)
+    {
+        var profile = await _users.GetStudentProfileAsync(userId, ct);
+        return profile is null ? NotFound() : Ok(profile);
+    }
+
+    [HttpPut("{userId:guid}/profile")]
+    public async Task<IActionResult> UpdateProfile(
+        Guid userId, [FromBody] UpdateStudentProfileRequest req, CancellationToken ct)
+    {
+        var result = await _users.UpdateStudentProfileAsync(userId, req, ct);
         return result.Succeeded ? Ok(result.Value) : BadRequest(new { error = result.Error });
     }
 

@@ -30,5 +30,8 @@ public sealed class Tenant
     /// <summary>Teachers and admins can bulk-import MCQs via CSV on topic quiz tab.</summary>
     public bool McqBulkImportEnabled { get; set; } = true;
 
+    /// <summary>UTC end of trial period. Enforced when <see cref="Status"/> is Trial.</summary>
+    public DateTime? TrialEndsAt { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

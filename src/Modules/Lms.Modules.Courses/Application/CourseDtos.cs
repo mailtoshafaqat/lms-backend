@@ -4,9 +4,20 @@ public sealed record BundleDto(Guid Id, string Title, int SubjectCount, decimal 
 
 public sealed record BundleDetailDto(Guid Id, string Title, IReadOnlyList<SubjectDto> Subjects);
 
-public sealed record SubjectDto(Guid Id, string Title, int Order, int UnitCount);
+public sealed record SubjectDto(
+    Guid Id,
+    string Title,
+    int Order,
+    int UnitCount,
+    Guid? SubjectDefinitionId = null,
+    bool LinkedToCatalog = false);
 
-public sealed record UnitDto(Guid Id, string Title, int Order, int TopicCount);
+public sealed record UnitDto(
+    Guid Id,
+    string Title,
+    int Order,
+    int TopicCount,
+    bool IsShared = false);
 
 public sealed record TopicDto(
     Guid Id,

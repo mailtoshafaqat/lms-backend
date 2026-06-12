@@ -1,5 +1,6 @@
 using Lms.Modules.Flashcards.Domain;
 using Lms.Modules.Flashcards.Infrastructure;
+using Lms.Shared.Courses;
 using Lms.Shared.Tenancy;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,11 +10,14 @@ public sealed class FlashcardAdminService : IFlashcardAdminService
 {
     private readonly FlashcardsDbContext _db;
     private readonly ITenantContext _tenant;
+    private readonly ITopicFlashcardStats _topicStats;
 
-    public FlashcardAdminService(FlashcardsDbContext db, ITenantContext tenant)
+    public FlashcardAdminService(
+        FlashcardsDbContext db, ITenantContext tenant, ITopicFlashcardStats topicStats)
     {
         _db = db;
         _tenant = tenant;
+        _topicStats = topicStats;
     }
 
     public async Task<FlashcardDeckDto?> GetAdminDeckAsync(Guid topicId, CancellationToken ct = default)
@@ -69,15 +73,19 @@ public sealed class FlashcardAdminService : IFlashcardAdminService
         };
         _db.Cards.Add(card);
         await _db.SaveChangesAsync(ct);
+        await SyncTopicCountAsync(topicId, ct);
         return new FlashcardDto(card.Id, card.Front, card.Back, card.Order);
     }
 
     public async Task<bool> DeleteCardAsync(Guid cardId, CancellationToken ct = default)
     {
-        var card = await _db.Cards.FindAsync([cardId], ct);
+        var card = await _db.Cards.Include(c => c.Deck).FirstOrDefaultAsync(c => c.Id == cardId, ct);
         if (card is null) return false;
+        var topicId = card.Deck?.TopicId;
         _db.Cards.Remove(card);
         await _db.SaveChangesAsync(ct);
+        if (topicId is not null)
+            await SyncTopicCountAsync(topicId.Value, ct);
         return true;
     }
 
@@ -113,5 +121,15 @@ public sealed class FlashcardAdminService : IFlashcardAdminService
         }
         await _db.SaveChangesAsync(ct);
         return true;
+    }
+
+    private async Task SyncTopicCountAsync(Guid topicId, CancellationToken ct)
+    {
+        var count = await (
+            from card in _db.Cards
+            join deck in _db.Decks on card.DeckId equals deck.Id
+            where deck.TopicId == topicId
+            select card).CountAsync(ct);
+        await _topicStats.SetFlashcardCountAsync(topicId, count, ct);
     }
 }

@@ -1,6 +1,7 @@
 using Lms.Modules.Platform.Domain;
 using Lms.Modules.Platform.Infrastructure;
 using Lms.Shared.Common;
+using Lms.Shared.Courses;
 using Lms.Shared.Tenancy;
 using Lms.Shared.Users;
 using Microsoft.EntityFrameworkCore;
@@ -11,11 +12,16 @@ public sealed class TenantAdminService : ITenantAdminService
 {
     private readonly PlatformDbContext _db;
     private readonly IInstituteAdminProvisioner _provisioner;
+    private readonly ISubjectCatalogProvisioner _catalog;
 
-    public TenantAdminService(PlatformDbContext db, IInstituteAdminProvisioner provisioner)
+    public TenantAdminService(
+        PlatformDbContext db,
+        IInstituteAdminProvisioner provisioner,
+        ISubjectCatalogProvisioner catalog)
     {
         _db = db;
         _provisioner = provisioner;
+        _catalog = catalog;
     }
 
     public async Task<IReadOnlyList<TenantListItemDto>> ListAsync(CancellationToken ct = default)
@@ -23,7 +29,8 @@ public sealed class TenantAdminService : ITenantAdminService
         return await _db.Tenants
             .AsNoTracking()
             .OrderByDescending(t => t.CreatedAt)
-            .Select(t => new TenantListItemDto(t.Id, t.Name, t.Slug, t.Status, t.Plan, t.CreatedAt))
+            .Select(t => new TenantListItemDto(
+                t.Id, t.Name, t.Slug, t.Status, t.Plan, t.TrialEndsAt, t.CreatedAt))
             .ToListAsync(ct);
     }
 
@@ -56,6 +63,7 @@ public sealed class TenantAdminService : ITenantAdminService
             Plan = string.IsNullOrWhiteSpace(request.Plan) ? "MVP" : request.Plan.Trim(),
             ProductProfile = profile,
             Status = TenantStatus.Trial,
+            TrialEndsAt = TenantTrial.DefaultEndsAt(DateTime.UtcNow),
             ZoomMode = ZoomMode.TenantManaged,
             PaymentMode = PaymentMode.TenantManaged,
             AllowAdminCreateStudent = true,
@@ -67,6 +75,7 @@ public sealed class TenantAdminService : ITenantAdminService
 
         _db.Tenants.Add(tenant);
         await _db.SaveChangesAsync(ct);
+        await _catalog.EnsureTemplateForTenantAsync(tenant.Id, profile, ct);
 
         return Result<TenantDetailDto>.Success(MapDetail(tenant));
     }
@@ -79,6 +88,13 @@ public sealed class TenantAdminService : ITenantAdminService
             return Result<TenantDetailDto>.Failure("Tenant not found.");
 
         tenant.Status = request.Status;
+        if (request.Status == TenantStatus.Active)
+            tenant.TrialEndsAt = null;
+        else if (request.TrialEndsAt.HasValue)
+            tenant.TrialEndsAt = DateTime.SpecifyKind(request.TrialEndsAt.Value, DateTimeKind.Utc);
+        else if (request.Status == TenantStatus.Trial && tenant.TrialEndsAt is null)
+            tenant.TrialEndsAt = TenantTrial.DefaultEndsAt(DateTime.UtcNow);
+
         tenant.Plan = request.Plan.Trim();
         tenant.ProductProfile = request.ProductProfile;
         tenant.LiveClassesEnabled = request.LiveClassesEnabled;
@@ -99,6 +115,23 @@ public sealed class TenantAdminService : ITenantAdminService
         tenant.CustomDomain = domain;
 
         await _db.SaveChangesAsync(ct);
+        await _catalog.EnsureTemplateForTenantAsync(tenant.Id, tenant.ProductProfile, ct);
+        return Result<TenantDetailDto>.Success(MapDetail(tenant));
+    }
+
+    public async Task<Result<TenantDetailDto>> ExtendTrialAsync(Guid id, CancellationToken ct = default)
+    {
+        var tenant = await _db.Tenants.FirstOrDefaultAsync(t => t.Id == id, ct);
+        if (tenant is null)
+            return Result<TenantDetailDto>.Failure("Tenant not found.");
+
+        var now = DateTime.UtcNow;
+        var baseDate = tenant.TrialEndsAt.HasValue && tenant.TrialEndsAt > now
+            ? tenant.TrialEndsAt.Value
+            : now;
+        tenant.TrialEndsAt = baseDate.AddDays(TenantTrial.DefaultTrialDays);
+
+        await _db.SaveChangesAsync(ct);
         return Result<TenantDetailDto>.Success(MapDetail(tenant));
     }
 
@@ -114,5 +147,5 @@ public sealed class TenantAdminService : ITenantAdminService
         t.Id, t.Name, t.Slug, t.CustomDomain, t.Status, t.Plan, t.ProductProfile,
         t.LiveClassesEnabled, t.ZoomMode, t.PaymentMode,
         t.AllowStudentSelfEnroll, t.AllowAdminCreateStudent, t.SyllabusMentorEnabled,
-        t.BundlePriceEditEnabled, t.McqBulkImportEnabled, t.CreatedAt);
+        t.BundlePriceEditEnabled, t.McqBulkImportEnabled, t.TrialEndsAt, t.CreatedAt);
 }

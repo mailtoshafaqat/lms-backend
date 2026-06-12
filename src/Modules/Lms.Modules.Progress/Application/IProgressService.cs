@@ -14,4 +14,6 @@ public interface IProgressService
 
     Task<Result<StudentDetailDto>> GetStudentDetailAsync(
         Guid userId, string role, Guid subjectId, Guid studentUserId, CancellationToken ct = default);
+
+    Task<DashboardOverviewDto> GetDashboardOverviewAsync(Guid userId, CancellationToken ct = default);
 }

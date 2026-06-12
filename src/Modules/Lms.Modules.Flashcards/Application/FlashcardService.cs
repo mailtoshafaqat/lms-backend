@@ -9,13 +9,20 @@ public sealed class FlashcardService : IFlashcardService
 
     public FlashcardService(FlashcardsDbContext db) => _db = db;
 
-    public async Task<FlashcardDeckDto?> GetByTopicAsync(Guid topicId, CancellationToken ct = default)
+    public async Task<FlashcardDeckDto> GetByTopicAsync(Guid topicId, CancellationToken ct = default)
     {
         var deck = await _db.Decks
             .Include(d => d.Cards)
             .FirstOrDefaultAsync(d => d.TopicId == topicId, ct);
 
-        if (deck is null) return null;
+        if (deck is null)
+        {
+            return new FlashcardDeckDto(
+                Guid.Empty,
+                topicId,
+                "Flashcards",
+                Array.Empty<FlashcardDto>());
+        }
 
         return new FlashcardDeckDto(
             deck.Id,

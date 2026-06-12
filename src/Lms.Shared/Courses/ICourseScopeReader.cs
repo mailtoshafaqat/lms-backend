@@ -20,4 +20,10 @@ public interface ICourseScopeReader
     Task<SubjectScope?> GetSubjectScopeAsync(Guid subjectId, CancellationToken ct = default);
     Task<IReadOnlyList<Guid>> GetTopicIdsForSubjectAsync(Guid subjectId, CancellationToken ct = default);
     Task<IReadOnlyList<Guid>> GetTopicIdsForUnitAsync(Guid unitId, CancellationToken ct = default);
+
+    Task<IReadOnlyDictionary<Guid, TopicScope>> GetTopicScopesAsync(
+        IReadOnlyList<Guid> topicIds, CancellationToken ct = default);
+
+    Task<IReadOnlyDictionary<Guid, int>> GetTopicCountsByBundleAsync(
+        IReadOnlyList<Guid> bundleIds, CancellationToken ct = default);
 }

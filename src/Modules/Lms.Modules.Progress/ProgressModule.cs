@@ -24,6 +24,8 @@ public sealed class ProgressModule : IModule
         services.AddScoped<IProgressService, ProgressService>();
         services.AddScoped<IStudentGradesReader, StudentGradesReader>();
         services.AddScoped<IMistakeDiaryService, MistakeDiaryService>();
+        services.AddScoped<IBookmarkService, BookmarkService>();
+        services.AddScoped<IWeaknessQuizService, WeaknessQuizService>();
 
         services.AddScoped<IEventHandler<QuizSubmittedEvent>, QuizSubmittedHandler>();
         services.AddScoped<IEventHandler<QuizSubmittedEvent>, MistakeDiaryHandler>();

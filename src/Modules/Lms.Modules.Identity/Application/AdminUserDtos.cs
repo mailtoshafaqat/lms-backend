@@ -20,7 +20,24 @@ public sealed record StudentListItemDto(
     string FullName,
     string Email,
     bool IsActive,
+    DateTime CreatedAt,
+    string? ProfilePictureUrl);
+
+public sealed record StudentProfileDto(
+    Guid UserId,
+    string FullName,
+    string Email,
+    string? Phone,
+    string? ProfilePictureUrl,
+    string? ProfileNotes,
+    bool IsActive,
     DateTime CreatedAt);
+
+public sealed record UpdateStudentProfileRequest(
+    string FullName,
+    string? Phone,
+    string? ProfilePictureUrl,
+    string? ProfileNotes);
 
 public sealed record SetStudentStatusRequest(bool IsActive);
 

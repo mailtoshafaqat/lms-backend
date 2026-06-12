@@ -6,11 +6,20 @@ public sealed record AssignedSubjectDto(
     Guid SubjectId,
     string SubjectTitle,
     Guid BundleId,
-    string BundleTitle);
+    string BundleTitle,
+    Guid? SubjectDefinitionId = null,
+    string? CatalogDisplayName = null);
+
+public sealed record CatalogSubjectGroupDto(
+    Guid DefinitionId,
+    string Code,
+    string DisplayName,
+    IReadOnlyList<AssignedSubjectDto> BatchPlacements);
 
 public sealed record TeacherSubjectAssignmentDto(
     Guid UserId,
-    IReadOnlyList<Guid> SubjectIds);
+    IReadOnlyList<Guid> SubjectIds,
+    IReadOnlyList<Guid> SubjectDefinitionIds);
 
 public interface ISubjectAccessService
 {
@@ -31,5 +40,11 @@ public interface ISubjectAccessService
 
     Task<IReadOnlyList<TeacherSubjectAssignmentDto>> ListAssignmentsAsync(CancellationToken ct = default);
 
-    Task<Result> SetTeacherSubjectsAsync(Guid teacherUserId, IReadOnlyList<Guid> subjectIds, CancellationToken ct = default);
+    Task<Result> SetTeacherSubjectsAsync(
+        Guid teacherUserId,
+        IReadOnlyList<Guid> subjectIds,
+        IReadOnlyList<Guid> subjectDefinitionIds,
+        CancellationToken ct = default);
+
+    Task<IReadOnlyList<CatalogSubjectGroupDto>> GetCatalogSubjectGroupsAsync(CancellationToken ct = default);
 }

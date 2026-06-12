@@ -4,6 +4,7 @@ using Lms.Modules.Identity.Infrastructure;
 using Lms.Shared.Auth;
 using Lms.Shared.Common;
 using Lms.Shared.Email;
+using Lms.Shared.Courses;
 using Lms.Shared.Enrollments;
 using Lms.Shared.Progress;
 using Lms.Shared.Tenancy;
@@ -28,6 +29,7 @@ public sealed class AdminUserService : IAdminUserService
     private readonly ITenantFeaturesProvider _tenantFeatures;
     private readonly IConfiguration _config;
     private readonly IStudentGradesReader _grades;
+    private readonly ISubjectCatalogReader _catalog;
     private readonly ILogger<AdminUserService> _logger;
 
     public AdminUserService(
@@ -39,6 +41,7 @@ public sealed class AdminUserService : IAdminUserService
         IBrandedEmailRenderer brandedEmail,
         ITenantFeaturesProvider tenantFeatures,
         IStudentGradesReader grades,
+        ISubjectCatalogReader catalog,
         IConfiguration config,
         ILogger<AdminUserService> logger)
     {
@@ -50,6 +53,7 @@ public sealed class AdminUserService : IAdminUserService
         _brandedEmail = brandedEmail;
         _tenantFeatures = tenantFeatures;
         _grades = grades;
+        _catalog = catalog;
         _config = config;
         _logger = logger;
     }
@@ -105,6 +109,18 @@ public sealed class AdminUserService : IAdminUserService
     {
         var q = _db.Users.AsNoTracking().Where(u => u.Role == Roles.Student);
 
+        if (query.SubjectDefinitionId is Guid definitionId)
+        {
+            var enrolledIds = await _catalog.GetEnrolledStudentIdsForDefinitionAsync(definitionId, ct);
+            if (enrolledIds.Count == 0)
+            {
+                return new PagedResult<StudentListItemDto>(
+                    [], query.NormalizedPage, query.NormalizedPageSize, 0);
+            }
+
+            q = q.Where(u => enrolledIds.Contains(u.Id));
+        }
+
         if (query.NormalizedSearch is { } term)
         {
             var lower = term.ToLowerInvariant();
@@ -115,8 +131,40 @@ public sealed class AdminUserService : IAdminUserService
         q = ApplyUserSort(q, query, defaultSortBy: "createdAt", defaultDescending: true);
 
         return await q
-            .Select(u => new StudentListItemDto(u.Id, u.FullName, u.Email, u.IsActive, u.CreatedAt))
+            .Select(u => new StudentListItemDto(
+                u.Id, u.FullName, u.Email, u.IsActive, u.CreatedAt, u.ProfilePictureUrl))
             .ToPagedResultAsync(query, ct);
+    }
+
+    public async Task<StudentProfileDto?> GetStudentProfileAsync(Guid userId, CancellationToken ct = default)
+    {
+        var user = await _db.Users.AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == userId && u.Role == Roles.Student, ct);
+        return user is null ? null : MapStudentProfile(user);
+    }
+
+    public async Task<Result<StudentProfileDto>> UpdateStudentProfileAsync(
+        Guid userId, UpdateStudentProfileRequest request, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.FullName))
+            return Result<StudentProfileDto>.Failure("Full name is required.");
+
+        var user = await _db.Users
+            .FirstOrDefaultAsync(u => u.Id == userId && u.Role == Roles.Student, ct);
+        if (user is null)
+            return Result<StudentProfileDto>.Failure("Student not found.");
+
+        user.FullName = request.FullName.Trim();
+        user.Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim();
+        user.ProfilePictureUrl = string.IsNullOrWhiteSpace(request.ProfilePictureUrl)
+            ? null
+            : request.ProfilePictureUrl.Trim();
+        user.ProfileNotes = string.IsNullOrWhiteSpace(request.ProfileNotes)
+            ? null
+            : request.ProfileNotes.Trim();
+
+        await _db.SaveChangesAsync(ct);
+        return Result<StudentProfileDto>.Success(MapStudentProfile(user));
     }
 
     public async Task<Result<CreatedTeacherDto>> CreateTeacherAsync(
@@ -163,8 +211,7 @@ public sealed class AdminUserService : IAdminUserService
         user.IsActive = isActive;
         await _db.SaveChangesAsync(ct);
 
-        return Result<StudentListItemDto>.Success(new StudentListItemDto(
-            user.Id, user.FullName, user.Email, user.IsActive, user.CreatedAt));
+        return Result<StudentListItemDto>.Success(MapStudentListItem(user));
     }
 
     public async Task<Result<ResetStudentPasswordDto>> ResetStudentPasswordAsync(
@@ -476,6 +523,20 @@ public sealed class AdminUserService : IAdminUserService
 
     private static StudentGuardianDto MapGuardian(StudentGuardian g) =>
         new(g.Id, g.StudentUserId, g.Name, g.Email, g.WeeklyReportsEnabled);
+
+    private static StudentListItemDto MapStudentListItem(User user) =>
+        new(user.Id, user.FullName, user.Email, user.IsActive, user.CreatedAt, user.ProfilePictureUrl);
+
+    private static StudentProfileDto MapStudentProfile(User user) =>
+        new(
+            user.Id,
+            user.FullName,
+            user.Email,
+            user.Phone,
+            user.ProfilePictureUrl,
+            user.ProfileNotes,
+            user.IsActive,
+            user.CreatedAt);
 
     private static string GenerateTempPassword(int length = 12)
     {

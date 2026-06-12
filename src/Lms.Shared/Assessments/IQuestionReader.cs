@@ -13,4 +13,7 @@ public sealed record QuestionSnapshot(
 public interface IQuestionReader
 {
     Task<IReadOnlyList<QuestionSnapshot>> GetByIdsAsync(IEnumerable<Guid> questionIds, CancellationToken ct = default);
+
+    Task<IReadOnlyList<QuestionSnapshot>> GetByTopicIdsAsync(
+        IEnumerable<Guid> topicIds, int take, CancellationToken ct = default);
 }

@@ -96,8 +96,9 @@ public sealed class MockExamAdminService : IMockExamAdminService
             BatchCompleteThresholdPercent = Math.Clamp(request.BatchCompleteThresholdPercent ?? 80, 1, 100)
         };
 
-        if (entity.ResultVisibility == ResultVisibilityMode.AfterClose && entity.AvailableUntilUtc is null)
-            return Result<AdminMockExamDto>.Failure("After-close visibility requires an end date.");
+        var publishError = ValidatePublishedExamPolicy(entity.IsPublished, entity.ResultVisibility, entity.AvailableUntilUtc);
+        if (publishError is not null)
+            return Result<AdminMockExamDto>.Failure(publishError);
 
         ApplySections(entity, sections, topicTitles);
 
@@ -131,11 +132,16 @@ public sealed class MockExamAdminService : IMockExamAdminService
         entity.AvailableUntilUtc = request.AvailableUntilUtc;
         entity.IsPublished = request.IsPublished;
 
-        if (entity.ResultVisibility == ResultVisibilityMode.AfterClose && entity.AvailableUntilUtc is null)
-            return Result<AdminMockExamDto>.Failure("After-close visibility requires an end date.");
+        var publishError = ValidatePublishedExamPolicy(entity.IsPublished, entity.ResultVisibility, entity.AvailableUntilUtc);
+        if (publishError is not null)
+            return Result<AdminMockExamDto>.Failure(publishError);
 
-        _db.MockExamTopics.RemoveRange(entity.Topics);
-        _db.MockExamSections.RemoveRange(entity.Sections);
+        var topicsToRemove = entity.Sections.SelectMany(s => s.Topics)
+            .Concat(entity.Topics)
+            .Distinct()
+            .ToList();
+        _db.MockExamTopics.RemoveRange(topicsToRemove);
+        _db.MockExamSections.RemoveRange(entity.Sections.ToList());
         entity.Topics.Clear();
         entity.Sections.Clear();
 
@@ -289,6 +295,23 @@ public sealed class MockExamAdminService : IMockExamAdminService
 
     private static ResultVisibilityMode ParseVisibility(string? value) =>
         AssessmentResultPolicy.ParseMode(value) ?? ResultVisibilityMode.AfterClose;
+
+    /// <summary>
+    /// Draft exams may omit an end date; publishing with after-close results requires a window end.
+    /// </summary>
+    private static string? ValidatePublishedExamPolicy(
+        bool isPublished,
+        ResultVisibilityMode resultVisibility,
+        DateTime? availableUntilUtc)
+    {
+        if (!isPublished) return null;
+        if (resultVisibility == ResultVisibilityMode.AfterClose && availableUntilUtc is null)
+        {
+            return "To publish, set Available until or change result visibility from “After window closes”.";
+        }
+
+        return null;
+    }
 
     private async Task<Result<Dictionary<Guid, string>>> ValidateRequestAsync(
         Guid subjectId,

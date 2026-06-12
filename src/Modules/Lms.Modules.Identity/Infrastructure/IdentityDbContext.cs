@@ -31,6 +31,9 @@ public sealed class IdentityDbContext : DbContext
             e.HasKey(u => u.Id);
             e.Property(u => u.Email).IsRequired().HasMaxLength(256);
             e.Property(u => u.FullName).IsRequired().HasMaxLength(200);
+            e.Property(u => u.Phone).HasMaxLength(32);
+            e.Property(u => u.ProfilePictureUrl).HasMaxLength(1000);
+            e.Property(u => u.ProfileNotes).HasMaxLength(2000);
             e.Property(u => u.Role).IsRequired().HasMaxLength(50);
             e.HasIndex(u => new { u.TenantId, u.Email }).IsUnique();
             e.HasMany(u => u.RefreshTokens).WithOne(r => r.User!).HasForeignKey(r => r.UserId);

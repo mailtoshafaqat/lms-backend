@@ -27,6 +27,7 @@ public sealed record TenantFeatures(
     string TenantName,
     string Slug,
     TenantStatus Status,
+    DateTime? TrialEndsAt,
     string Plan,
     ProductProfile ProductProfile,
     bool MockExamsEnabled,

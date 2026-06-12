@@ -16,6 +16,7 @@ public sealed class ProgressDbContext : DbContext
 
     public DbSet<QuizResult> QuizResults => Set<QuizResult>();
     public DbSet<MistakeEntry> MistakeEntries => Set<MistakeEntry>();
+    public DbSet<Bookmark> Bookmarks => Set<Bookmark>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -37,6 +38,16 @@ public sealed class ProgressDbContext : DbContext
             e.Property(m => m.QuizTitle).HasMaxLength(200);
             e.HasIndex(m => new { m.UserId, m.QuestionId });
             e.HasQueryFilter(m => m.TenantId == _tenant.TenantId);
+        });
+
+        builder.Entity<Bookmark>(e =>
+        {
+            e.ToTable("Bookmarks");
+            e.Property(b => b.TargetType).IsRequired().HasMaxLength(32);
+            e.Property(b => b.Title).IsRequired().HasMaxLength(300);
+            e.Property(b => b.Subtitle).HasMaxLength(300);
+            e.HasIndex(b => new { b.UserId, b.TargetType, b.TargetId }).IsUnique();
+            e.HasQueryFilter(b => b.TenantId == _tenant.TenantId);
         });
 
         base.OnModelCreating(builder);

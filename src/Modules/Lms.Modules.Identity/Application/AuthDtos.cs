@@ -24,7 +24,10 @@ public sealed record TenantFeaturesDto(
     bool AllowStudentSelfEnroll,
     bool AllowAdminCreateStudent,
     bool BundlePriceEditEnabled,
-    bool McqBulkImportEnabled);
+    bool McqBulkImportEnabled,
+    DateTime? TrialEndsAt = null,
+    int? TrialDaysRemaining = null,
+    bool? TrialExpired = null);
 
 public sealed record AuthResponse(
     Guid UserId,
@@ -37,7 +40,13 @@ public sealed record AuthResponse(
     bool MustChangePassword,
     TenantFeaturesDto? Tenant);
 
-public sealed record UserProfile(Guid UserId, string Email, string FullName, string Role);
+public sealed record UserProfile(
+    Guid UserId,
+    string Email,
+    string FullName,
+    string Role,
+    string? Phone,
+    string? ProfilePictureUrl);
 
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 
