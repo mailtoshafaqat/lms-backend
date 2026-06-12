@@ -9,7 +9,15 @@ public sealed record TenantListItemDto(
     TenantStatus Status,
     string Plan,
     DateTime? TrialEndsAt,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    long StorageUsedBytes,
+    long StorageQuotaBytes,
+    int StorageUsedPercent,
+    bool StorageQuotaBypass);
+
+public sealed record UpdateTenantStorageRequest(
+    long? QuotaBytesOverride,
+    bool QuotaBypass);
 
 public sealed record TenantDetailDto(
     Guid Id,

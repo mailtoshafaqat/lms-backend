@@ -56,6 +56,15 @@ public sealed record AdminUnitQuizDto(
     string? DifficultyFilter,
     int AssembledQuestionCount);
 
+public sealed record QuestionSearchHitDto(
+    Guid Id,
+    string Stem,
+    Guid? TopicId,
+    string? TopicTitle,
+    string? SubjectTitle,
+    string? BundleTitle,
+    int Order);
+
 public sealed record UpdateQuizSettingsRequest(
     int? TimeLimitMinutes,
     DateTime? AvailableFromUtc,

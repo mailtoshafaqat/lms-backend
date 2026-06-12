@@ -18,6 +18,7 @@ public static class DependencyInjection
         services.AddScoped<IEventBus, InMemoryEventBus>();
 
         services.Configure<FileStorageOptions>(configuration.GetSection(FileStorageOptions.SectionName));
+        services.Configure<StorageQuotaOptions>(configuration.GetSection(StorageQuotaOptions.SectionName));
         services.AddSingleton<IFileStorage, LocalDiskFileStorage>();
         return services;
     }

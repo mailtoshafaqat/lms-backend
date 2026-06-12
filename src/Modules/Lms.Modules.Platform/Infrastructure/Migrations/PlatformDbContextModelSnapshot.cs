@@ -199,6 +199,15 @@ namespace Lms.Modules.Platform.Infrastructure.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
+                    b.Property<bool>("StorageQuotaBypass")
+                        .HasColumnType("bit");
+
+                    b.Property<long?>("StorageQuotaBytesOverride")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("StorageUsedBytes")
+                        .HasColumnType("bigint");
+
                     b.Property<bool>("SyllabusMentorEnabled")
                         .HasColumnType("bit");
 
@@ -314,6 +323,39 @@ namespace Lms.Modules.Platform.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("TenantSettings", "platform");
+                });
+
+            modelBuilder.Entity("Lms.Modules.Platform.Domain.TenantStorageObject", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Folder")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "StorageKey")
+                        .IsUnique();
+
+                    b.ToTable("TenantStorageObjects", "platform");
                 });
 
             modelBuilder.Entity("Lms.Modules.Platform.Domain.PageSection", b =>

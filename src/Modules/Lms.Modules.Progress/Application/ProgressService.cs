@@ -16,6 +16,7 @@ public sealed class ProgressService : IProgressService
     private readonly ISubjectAccessService _subjects;
     private readonly IEnrollmentReader _enrollments;
     private readonly IDoubtSummaryReader _doubts;
+    private readonly BundleCompletionService _completion;
 
     public ProgressService(
         ProgressDbContext db,
@@ -23,7 +24,8 @@ public sealed class ProgressService : IProgressService
         ICourseScopeReader scope,
         ISubjectAccessService subjects,
         IEnrollmentReader enrollments,
-        IDoubtSummaryReader doubts)
+        IDoubtSummaryReader doubts,
+        BundleCompletionService completion)
     {
         _db = db;
         _users = users;
@@ -31,6 +33,7 @@ public sealed class ProgressService : IProgressService
         _subjects = subjects;
         _enrollments = enrollments;
         _doubts = doubts;
+        _completion = completion;
     }
 
     public async Task<IReadOnlyList<GradeDto>> GetMyGradesAsync(Guid userId, CancellationToken ct = default)
@@ -317,27 +320,14 @@ public sealed class ProgressService : IProgressService
         }
 
         var enrollments = await _enrollments.GetActiveEnrollmentsAsync(userId, ct);
-        var bundleIds = enrollments.Select(e => e.BundleId).ToList();
-        var topicCounts = await _scope.GetTopicCountsByBundleAsync(bundleIds, ct);
-
-        var topicsAttemptedByBundle = new Dictionary<Guid, HashSet<Guid>>();
-        foreach (var bundleId in bundleIds)
-            topicsAttemptedByBundle[bundleId] = [];
-
-        foreach (var result in results)
+        var bundleProgress = new List<BundleProgressDto>();
+        foreach (var enrollment in enrollments)
         {
-            if (!topicScopes.TryGetValue(result.TopicId, out var scope)) continue;
-            if (topicsAttemptedByBundle.TryGetValue(scope.BundleId, out var set))
-                set.Add(result.TopicId);
-        }
-
-        var bundleProgress = enrollments.Select(e =>
-        {
-            var total = topicCounts.TryGetValue(e.BundleId, out var count) ? count : 0;
-            var completed = topicsAttemptedByBundle.TryGetValue(e.BundleId, out var set) ? set.Count : 0;
+            var (completed, total) = await _completion.GetBundleCompletionAsync(userId, enrollment.BundleId, ct);
             var pct = total == 0 ? 0 : (int)Math.Round(100.0 * completed / total);
-            return new BundleProgressDto(e.BundleId, e.BundleTitle, completed, total, pct);
-        }).ToList();
+            bundleProgress.Add(new BundleProgressDto(
+                enrollment.BundleId, enrollment.BundleTitle, completed, total, pct));
+        }
 
         return new DashboardOverviewDto(
             overallAccuracy,

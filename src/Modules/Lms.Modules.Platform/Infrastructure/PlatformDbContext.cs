@@ -19,6 +19,7 @@ public sealed class PlatformDbContext : DbContext
     public DbSet<LandingPage> LandingPages => Set<LandingPage>();
     public DbSet<PageSection> PageSections => Set<PageSection>();
     public DbSet<RequestIncident> RequestIncidents => Set<RequestIncident>();
+    public DbSet<TenantStorageObject> TenantStorageObjects => Set<TenantStorageObject>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -66,6 +67,14 @@ public sealed class PlatformDbContext : DbContext
             e.ToTable("PageSections");
             e.Property(s => s.SectionType).IsRequired().HasMaxLength(32);
             e.Property(s => s.ContentJson).IsRequired();
+        });
+
+        builder.Entity<TenantStorageObject>(e =>
+        {
+            e.ToTable("TenantStorageObjects");
+            e.Property(o => o.StorageKey).IsRequired().HasMaxLength(512);
+            e.Property(o => o.Folder).IsRequired().HasMaxLength(64);
+            e.HasIndex(o => new { o.TenantId, o.StorageKey }).IsUnique();
         });
 
         builder.Entity<RequestIncident>(e =>

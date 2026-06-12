@@ -2,6 +2,7 @@ using Lms.Modules.Content.Domain;
 using Lms.Modules.Content.Infrastructure;
 using Lms.Shared.Content;
 using Lms.Shared.Events;
+using Lms.Shared.Storage;
 using Lms.Shared.Tenancy;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,12 +13,21 @@ public sealed class ContentAdminService : IContentAdminService
     private readonly ContentDbContext _db;
     private readonly ITenantContext _tenant;
     private readonly IEventBus _events;
+    private readonly IFileStorage _files;
+    private readonly ITenantStorageQuotaService _quota;
 
-    public ContentAdminService(ContentDbContext db, ITenantContext tenant, IEventBus events)
+    public ContentAdminService(
+        ContentDbContext db,
+        ITenantContext tenant,
+        IEventBus events,
+        IFileStorage files,
+        ITenantStorageQuotaService quota)
     {
         _db = db;
         _tenant = tenant;
         _events = events;
+        _files = files;
+        _quota = quota;
     }
 
     public async Task<LectureDto> AddLectureAsync(Guid topicId, CreateLectureRequest req, CancellationToken ct = default)
@@ -70,6 +80,11 @@ public sealed class ContentAdminService : IContentAdminService
     {
         var lecture = await _db.Lectures.FindAsync([id], ct);
         if (lecture is null) return false;
+        if (!string.IsNullOrWhiteSpace(lecture.StorageKey))
+        {
+            await _files.DeleteAsync(lecture.StorageKey, ct);
+            await _quota.ReleaseAsync(_tenant.TenantId, lecture.StorageKey, ct);
+        }
         _db.Lectures.Remove(lecture);
         await _db.SaveChangesAsync(ct);
         return true;
@@ -80,6 +95,11 @@ public sealed class ContentAdminService : IContentAdminService
         var note = await _db.Notes.FindAsync([id], ct);
         if (note is null) return false;
         var topicId = note.TopicId;
+        if (!string.IsNullOrWhiteSpace(note.StorageKey))
+        {
+            await _files.DeleteAsync(note.StorageKey, ct);
+            await _quota.ReleaseAsync(_tenant.TenantId, note.StorageKey, ct);
+        }
         _db.Notes.Remove(note);
         await _db.SaveChangesAsync(ct);
         await _events.PublishAsync(new NoteContentChangedEvent(_tenant.TenantId, topicId), ct);

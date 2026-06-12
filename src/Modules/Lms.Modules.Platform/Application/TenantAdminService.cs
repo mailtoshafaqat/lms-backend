@@ -1,6 +1,8 @@
 using Lms.Modules.Platform.Domain;
 using Lms.Modules.Platform.Infrastructure;
 using Lms.Shared.Common;
+using Lms.Shared.Storage;
+using Microsoft.Extensions.Options;
 using Lms.Shared.Courses;
 using Lms.Shared.Tenancy;
 using Lms.Shared.Users;
@@ -13,25 +15,33 @@ public sealed class TenantAdminService : ITenantAdminService
     private readonly PlatformDbContext _db;
     private readonly IInstituteAdminProvisioner _provisioner;
     private readonly ISubjectCatalogProvisioner _catalog;
+    private readonly StorageQuotaOptions _quotaOptions;
 
     public TenantAdminService(
         PlatformDbContext db,
         IInstituteAdminProvisioner provisioner,
-        ISubjectCatalogProvisioner catalog)
+        ISubjectCatalogProvisioner catalog,
+        IOptions<StorageQuotaOptions> quotaOptions)
     {
         _db = db;
         _provisioner = provisioner;
         _catalog = catalog;
+        _quotaOptions = quotaOptions.Value;
     }
 
     public async Task<IReadOnlyList<TenantListItemDto>> ListAsync(CancellationToken ct = default)
     {
-        return await _db.Tenants
-            .AsNoTracking()
-            .OrderByDescending(t => t.CreatedAt)
-            .Select(t => new TenantListItemDto(
-                t.Id, t.Name, t.Slug, t.Status, t.Plan, t.TrialEndsAt, t.CreatedAt))
-            .ToListAsync(ct);
+        var tenants = await _db.Tenants.AsNoTracking().OrderByDescending(t => t.CreatedAt).ToListAsync(ct);
+        return tenants.Select(MapListItem).ToList();
+    }
+
+    private TenantListItemDto MapListItem(Tenant t)
+    {
+        var quota = _quotaOptions.ResolveQuotaBytes(t.Plan, t.StorageQuotaBytesOverride);
+        var percent = quota <= 0 ? 0 : (int)Math.Min(100, Math.Round(100.0 * t.StorageUsedBytes / quota));
+        return new TenantListItemDto(
+            t.Id, t.Name, t.Slug, t.Status, t.Plan, t.TrialEndsAt, t.CreatedAt,
+            t.StorageUsedBytes, quota, percent, t.StorageQuotaBypass);
     }
 
     public async Task<TenantDetailDto?> GetAsync(Guid id, CancellationToken ct = default)

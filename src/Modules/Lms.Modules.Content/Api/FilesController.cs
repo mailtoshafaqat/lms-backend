@@ -1,5 +1,6 @@
 using Lms.Modules.Content.Application;
 using Lms.Shared.Storage;
+using Lms.Shared.Tenancy;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -30,8 +31,18 @@ public sealed class FilesController : ControllerBase
     };
 
     private readonly IFileStorage _storage;
+    private readonly ITenantStorageQuotaService _quota;
+    private readonly ITenantContext _tenant;
 
-    public FilesController(IFileStorage storage) => _storage = storage;
+    public FilesController(
+        IFileStorage storage,
+        ITenantStorageQuotaService quota,
+        ITenantContext tenant)
+    {
+        _storage = storage;
+        _quota = quota;
+        _tenant = tenant;
+    }
 
     /// <summary>Streams a stored file. Lecture/note keys require authentication.</summary>
     [HttpGet("files/{*key}")]
@@ -97,10 +108,17 @@ public sealed class FilesController : ControllerBase
                 return BadRequest(new { error = "Unsupported note document type." });
         }
 
+        var check = await _quota.CheckUploadAsync(_tenant.TenantId, file.Length, ct);
+        if (!check.Allowed)
+            return StatusCode(StatusCodes.Status413PayloadTooLarge, new { error = check.Error, usage = check.Usage });
+
         var key = $"{safeFolder}/{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
 
         await using var stream = file.OpenReadStream();
         var savedKey = await _storage.SaveAsync(key, stream, ct);
-        return Ok(new { key = savedKey, url = $"/api/v1/files/{savedKey}" });
+        await _quota.RecordUploadAsync(_tenant.TenantId, savedKey, file.Length, safeFolder, ct);
+
+        var usage = await _quota.GetUsageAsync(_tenant.TenantId, ct);
+        return Ok(new { key = savedKey, url = $"/api/v1/files/{savedKey}", storage = usage });
     }
 }

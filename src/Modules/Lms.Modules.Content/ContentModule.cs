@@ -24,5 +24,6 @@ public sealed class ContentModule : IModule
         services.AddScoped<IVideoLibraryService, VideoLibraryService>();
         services.AddScoped<IContentNotesReader, ContentNotesReader>();
         services.AddScoped<ILectureWriter, LectureWriter>();
+        services.AddScoped<ILectureCatalog, LectureCatalog>();
     }
 }

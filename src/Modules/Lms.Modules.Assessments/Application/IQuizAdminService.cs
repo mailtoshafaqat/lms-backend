@@ -4,6 +4,9 @@ namespace Lms.Modules.Assessments.Application;
 
 public interface IQuizAdminService
 {
+    Task<PagedResult<QuestionSearchHitDto>> SearchQuestionsAsync(
+        string query, int page, int pageSize, CancellationToken ct = default);
+
     Task<AdminQuizDto?> GetAdminQuizAsync(Guid topicId, CancellationToken ct = default);
     Task<Result<AdminQuestionDto>> AddQuestionAsync(Guid topicId, CreateQuestionRequest req, CancellationToken ct = default);
     Task<bool> DeleteQuestionAsync(Guid questionId, CancellationToken ct = default);

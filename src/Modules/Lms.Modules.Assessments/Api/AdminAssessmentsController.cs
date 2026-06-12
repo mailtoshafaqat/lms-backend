@@ -40,6 +40,11 @@ public sealed class AdminAssessmentsController : ControllerBase
         return r.Succeeded ? Ok(r.Value) : BadRequest(new { error = r.Error });
     }
 
+    [HttpGet("questions/search")]
+    public async Task<IActionResult> SearchQuestions(
+        [FromQuery] string q, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default) =>
+        Ok(await _admin.SearchQuestionsAsync(q, page, pageSize, ct));
+
     [HttpDelete("questions/{id:guid}")]
     public async Task<IActionResult> DeleteQuestion(Guid id, CancellationToken ct) =>
         await _admin.DeleteQuestionAsync(id, ct) ? NoContent() : NotFound();

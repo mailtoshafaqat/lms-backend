@@ -1,0 +1,32 @@
+[
+    {
+        "Test":  "Admin storage usage",
+        "Pass":  true,
+        "Detail":  "used=0 quota=21474836480"
+    },
+    {
+        "Test":  "SuperAdmin list storage",
+        "Pass":  true,
+        "Detail":  "plan=MVP"
+    },
+    {
+        "Test":  "Tenant list includes storage fields",
+        "Pass":  true,
+        "Detail":  "quota=21474836480"
+    },
+    {
+        "Test":  "Upload blocked over quota (413)",
+        "Pass":  true,
+        "Detail":  "status=413"
+    },
+    {
+        "Test":  "Enable quota bypass",
+        "Pass":  true,
+        "Detail":  "bypass on"
+    },
+    {
+        "Test":  "Restore plan default quota",
+        "Pass":  true,
+        "Detail":  "override cleared"
+    }
+]

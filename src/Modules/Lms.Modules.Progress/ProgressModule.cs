@@ -26,6 +26,12 @@ public sealed class ProgressModule : IModule
         services.AddScoped<IMistakeDiaryService, MistakeDiaryService>();
         services.AddScoped<IBookmarkService, BookmarkService>();
         services.AddScoped<IWeaknessQuizService, WeaknessQuizService>();
+        services.AddScoped<BundleCompletionService>();
+        services.AddScoped<IVideoProgressService, VideoProgressService>();
+        services.AddScoped<ICertificateService, CertificateService>();
+        services.AddScoped<ICertificateTemplateService, CertificateTemplateService>();
+        services.AddScoped<ICertificatePdfService, CertificatePdfService>();
+        services.AddScoped<ICohortAnalyticsService, CohortAnalyticsService>();
 
         services.AddScoped<IEventHandler<QuizSubmittedEvent>, QuizSubmittedHandler>();
         services.AddScoped<IEventHandler<QuizSubmittedEvent>, MistakeDiaryHandler>();

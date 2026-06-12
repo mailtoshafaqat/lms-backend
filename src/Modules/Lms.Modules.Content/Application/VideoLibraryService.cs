@@ -44,9 +44,16 @@ public sealed class VideoLibraryService : IVideoLibraryService
         if (bundleIds.Count == 0)
             return new VideoLibraryDto(false, []);
 
-        var videosOnlyFlags = await Task.WhenAll(
-            bundleIds.Select(async id => (id, (await _bundles.GetBundleAsync(id, ct))?.VideosOnly ?? false)));
-        var videosOnlyStudent = videosOnlyFlags.All(f => f.Item2);
+        var videosOnlyStudent = true;
+        foreach (var id in bundleIds)
+        {
+            var bundle = await _bundles.GetBundleAsync(id, ct);
+            if (bundle is null || !bundle.VideosOnly)
+            {
+                videosOnlyStudent = false;
+                break;
+            }
+        }
 
         var topicPaths = await _topics.GetTopicPathsForBundlesAsync(bundleIds, ct);
         if (topicPaths.Count == 0)

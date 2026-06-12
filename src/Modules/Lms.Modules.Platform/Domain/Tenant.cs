@@ -33,5 +33,14 @@ public sealed class Tenant
     /// <summary>UTC end of trial period. Enforced when <see cref="Status"/> is Trial.</summary>
     public DateTime? TrialEndsAt { get; set; }
 
+    /// <summary>Cached sum of <see cref="TenantStorageObject"/> sizes.</summary>
+    public long StorageUsedBytes { get; set; }
+
+    /// <summary>SuperAdmin override; null = use plan default (MVP / Pro).</summary>
+    public long? StorageQuotaBytesOverride { get; set; }
+
+    /// <summary>When true, uploads are allowed above quota (platform ops override).</summary>
+    public bool StorageQuotaBypass { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

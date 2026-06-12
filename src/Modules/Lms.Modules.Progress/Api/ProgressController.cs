@@ -14,6 +14,8 @@ public sealed class ProgressController : ControllerBase
     private readonly IMistakeDiaryService _mistakes;
     private readonly IBookmarkService _bookmarks;
     private readonly IWeaknessQuizService _weaknessQuiz;
+    private readonly IVideoProgressService _videoProgress;
+    private readonly ICertificateService _certificates;
     private readonly ICurrentUser _currentUser;
 
     public ProgressController(
@@ -21,12 +23,16 @@ public sealed class ProgressController : ControllerBase
         IMistakeDiaryService mistakes,
         IBookmarkService bookmarks,
         IWeaknessQuizService weaknessQuiz,
+        IVideoProgressService videoProgress,
+        ICertificateService certificates,
         ICurrentUser currentUser)
     {
         _progress = progress;
         _mistakes = mistakes;
         _bookmarks = bookmarks;
         _weaknessQuiz = weaknessQuiz;
+        _videoProgress = videoProgress;
+        _certificates = certificates;
         _currentUser = currentUser;
     }
 
@@ -134,6 +140,68 @@ public sealed class ProgressController : ControllerBase
         return quiz is null
             ? NotFound(new { error = "No weakness questions yet. Take topic quizzes or review your mistake diary first." })
             : Ok(quiz);
+    }
+
+    [Authorize]
+    [HttpPut("me/lectures/{lectureId:guid}/progress")]
+    public async Task<IActionResult> SaveLectureProgress(
+        Guid lectureId, [FromBody] SaveLectureProgressRequest request, CancellationToken ct)
+    {
+        var userId = _currentUser.UserId;
+        if (userId is null) return Unauthorized();
+        try
+        {
+            return Ok(await _videoProgress.SaveProgressAsync(userId.Value, lectureId, request, ct));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [Authorize]
+    [HttpGet("me/lectures/{lectureId:guid}/progress")]
+    public async Task<IActionResult> GetLectureProgress(Guid lectureId, CancellationToken ct)
+    {
+        var userId = _currentUser.UserId;
+        if (userId is null) return Unauthorized();
+        var row = await _videoProgress.GetProgressAsync(userId.Value, lectureId, ct);
+        return row is null ? NotFound() : Ok(row);
+    }
+
+    [Authorize]
+    [HttpGet("me/lectures/progress")]
+    public async Task<IActionResult> GetLectureProgressBulk(
+        [FromQuery] string lectureIds, CancellationToken ct)
+    {
+        var userId = _currentUser.UserId;
+        if (userId is null) return Unauthorized();
+        var ids = (lectureIds ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(s => Guid.TryParse(s, out var id) ? id : Guid.Empty)
+            .Where(id => id != Guid.Empty)
+            .ToList();
+        return Ok(await _videoProgress.GetProgressForLecturesAsync(userId.Value, ids, ct));
+    }
+
+    [Authorize]
+    [HttpGet("me/certificates")]
+    public async Task<IActionResult> MyCertificates(CancellationToken ct)
+    {
+        var userId = _currentUser.UserId;
+        if (userId is null) return Unauthorized();
+        return Ok(await _certificates.ListMineAsync(userId.Value, ct));
+    }
+
+    [Authorize]
+    [HttpGet("me/certificates/{id:guid}/pdf")]
+    public async Task<IActionResult> DownloadMyCertificatePdf(Guid id, CancellationToken ct)
+    {
+        var userId = _currentUser.UserId;
+        if (userId is null) return Unauthorized();
+        var pdf = await _certificates.GetPdfForStudentAsync(id, userId.Value, ct);
+        if (pdf is null) return NotFound();
+        return File(pdf, "application/pdf", $"certificate-{id:N}.pdf");
     }
 
     [Authorize]

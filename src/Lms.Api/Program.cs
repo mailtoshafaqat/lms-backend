@@ -28,12 +28,15 @@ using Lms.Api.Filters;
 using Lms.Api.Middleware;
 using Lms.Api.Seeders;
 using Lms.Shared;
+using QuestPDF.Infrastructure;
 using Lms.Shared.Auth;
 using Lms.Shared.Modules;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+
+QuestPDF.Settings.License = LicenseType.Community;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -194,6 +197,26 @@ if (app.Environment.IsDevelopment())
 
     var platformDb = sp.GetRequiredService<PlatformDbContext>();
     await platformDb.Database.MigrateAsync();
+    await platformDb.Database.ExecuteSqlRawAsync("""
+        IF COL_LENGTH('platform.Tenants', 'StorageUsedBytes') IS NULL
+            ALTER TABLE platform.Tenants ADD StorageUsedBytes bigint NOT NULL CONSTRAINT DF_Tenants_StorageUsedBytes DEFAULT 0;
+        IF COL_LENGTH('platform.Tenants', 'StorageQuotaBytesOverride') IS NULL
+            ALTER TABLE platform.Tenants ADD StorageQuotaBytesOverride bigint NULL;
+        IF COL_LENGTH('platform.Tenants', 'StorageQuotaBypass') IS NULL
+            ALTER TABLE platform.Tenants ADD StorageQuotaBypass bit NOT NULL CONSTRAINT DF_Tenants_StorageQuotaBypass DEFAULT 0;
+        IF OBJECT_ID('platform.TenantStorageObjects', 'U') IS NULL
+        BEGIN
+            CREATE TABLE platform.TenantStorageObjects (
+                Id uniqueidentifier NOT NULL PRIMARY KEY,
+                TenantId uniqueidentifier NOT NULL,
+                StorageKey nvarchar(512) NOT NULL,
+                Folder nvarchar(64) NOT NULL,
+                SizeBytes bigint NOT NULL,
+                CreatedAt datetime2 NOT NULL);
+            CREATE UNIQUE INDEX IX_TenantStorageObjects_TenantId_StorageKey
+                ON platform.TenantStorageObjects (TenantId, StorageKey);
+        END
+        """);
     await PlatformSeeder.SeedAsync(platformDb);
 
     var catalogTenants = await platformDb.Tenants.AsNoTracking()

@@ -1,6 +1,7 @@
 using Lms.Modules.Assessments.Contracts;
 using Lms.Modules.Progress.Domain;
 using Lms.Modules.Progress.Infrastructure;
+using Lms.Shared.Courses;
 using Lms.Shared.Events;
 
 namespace Lms.Modules.Progress.Application;
@@ -11,8 +12,18 @@ namespace Lms.Modules.Progress.Application;
 public sealed class QuizSubmittedHandler : IEventHandler<QuizSubmittedEvent>
 {
     private readonly ProgressDbContext _db;
+    private readonly ICourseScopeReader _scope;
+    private readonly ICertificateService _certificates;
 
-    public QuizSubmittedHandler(ProgressDbContext db) => _db = db;
+    public QuizSubmittedHandler(
+        ProgressDbContext db,
+        ICourseScopeReader scope,
+        ICertificateService certificates)
+    {
+        _db = db;
+        _scope = scope;
+        _certificates = certificates;
+    }
 
     public async Task HandleAsync(QuizSubmittedEvent @event, CancellationToken cancellationToken = default)
     {
@@ -29,5 +40,9 @@ public sealed class QuizSubmittedHandler : IEventHandler<QuizSubmittedEvent>
         });
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        var topicScope = await _scope.GetTopicScopeAsync(@event.TopicId, cancellationToken);
+        if (topicScope is not null)
+            await _certificates.TryIssueIfCompleteAsync(@event.UserId, topicScope.BundleId, cancellationToken);
     }
 }

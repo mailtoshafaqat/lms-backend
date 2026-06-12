@@ -1,4 +1,5 @@
 using Lms.Modules.Platform.Application;
+using Lms.Shared.Storage;
 using Lms.Shared.Users;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,15 +14,18 @@ public sealed class SuperAdminTenantsController : ControllerBase
     private readonly ITenantAdminService _tenants;
     private readonly IPlatformSettingsService _settings;
     private readonly IInstituteAdminReader _admins;
+    private readonly ITenantStorageQuotaService _storage;
 
     public SuperAdminTenantsController(
         ITenantAdminService tenants,
         IPlatformSettingsService settings,
-        IInstituteAdminReader admins)
+        IInstituteAdminReader admins,
+        ITenantStorageQuotaService storage)
     {
         _tenants = tenants;
         _settings = settings;
         _admins = admins;
+        _storage = storage;
     }
 
     [HttpGet]
@@ -89,4 +93,23 @@ public sealed class SuperAdminTenantsController : ControllerBase
     [HttpPut("{id:guid}/branding")]
     public async Task<IActionResult> UpdateBranding(Guid id, [FromBody] UpdateBrandingRequest req, CancellationToken ct) =>
         Ok(await _settings.UpdateTenantBrandingAsync(id, req, ct));
+
+    [HttpGet("storage")]
+    public async Task<IActionResult> ListStorage(CancellationToken ct) =>
+        Ok(await _storage.ListAllUsageAsync(ct));
+
+    [HttpPut("{id:guid}/storage")]
+    public async Task<IActionResult> UpdateStorage(
+        Guid id, [FromBody] UpdateTenantStorageRequest req, CancellationToken ct)
+    {
+        try
+        {
+            return Ok(await _storage.SetSuperAdminOverridesAsync(
+                id, req.QuotaBytesOverride, req.QuotaBypass, ct));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+    }
 }

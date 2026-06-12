@@ -28,6 +28,50 @@ public sealed class QuizAdminService : IQuizAdminService
         _scope = scope;
     }
 
+    public async Task<PagedResult<QuestionSearchHitDto>> SearchQuestionsAsync(
+        string query, int page, int pageSize, CancellationToken ct = default)
+    {
+        var term = query.Trim();
+        var normalizedPage = page < 1 ? 1 : page;
+        var normalizedSize = pageSize is < 1 or > 100 ? 20 : pageSize;
+
+        if (term.Length < 2)
+            return new PagedResult<QuestionSearchHitDto>([], normalizedPage, normalizedSize, 0);
+
+        var baseQuery = _db.Questions.AsNoTracking()
+            .Where(q => q.Stem.Contains(term));
+
+        var total = await baseQuery.CountAsync(ct);
+        var rows = await baseQuery
+            .Include(q => q.Quiz)
+            .OrderBy(q => q.Stem)
+            .Skip((normalizedPage - 1) * normalizedSize)
+            .Take(normalizedSize)
+            .ToListAsync(ct);
+
+        var topicIds = rows
+            .Where(r => r.Quiz?.TopicId is Guid)
+            .Select(r => r.Quiz!.TopicId!.Value)
+            .Distinct()
+            .ToList();
+        var scopes = await _scope.GetTopicScopesAsync(topicIds, ct);
+
+        var data = rows.Select(r =>
+        {
+            TopicScope? scope = r.Quiz?.TopicId is Guid tid && scopes.TryGetValue(tid, out var s) ? s : null;
+            return new QuestionSearchHitDto(
+                r.Id,
+                r.Stem,
+                r.Quiz?.TopicId,
+                scope?.TopicTitle,
+                scope?.SubjectTitle,
+                null,
+                r.Order);
+        }).ToList();
+
+        return new PagedResult<QuestionSearchHitDto>(data, normalizedPage, normalizedSize, total);
+    }
+
     public async Task<AdminQuizDto?> GetAdminQuizAsync(Guid topicId, CancellationToken ct = default)
     {
         var quiz = await _db.Quizzes
