@@ -31,6 +31,7 @@ public sealed class CoursesModule : IModule
 
         // Cross-module contract: lets other modules (Enrollment) read bundle summaries.
         services.AddScoped<IBundleCatalog, BundleCatalog>();
+        services.AddScoped<ICourseTopicCatalog, CourseTopicCatalog>();
         services.AddScoped<ICourseContentSearch, CourseContentSearch>();
         services.AddScoped<ITopicFlashcardStats, TopicFlashcardStats>();
     }

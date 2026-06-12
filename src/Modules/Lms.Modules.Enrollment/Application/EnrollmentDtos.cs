@@ -6,6 +6,7 @@ public sealed record EnrollmentDto(
     decimal PricePaid,
     DateTime EnrolledAt,
     DateTime ExpiresAt,
-    bool IsActive);
+    bool IsActive,
+    bool VideosOnly);
 
 public sealed record ExtendEnrollmentRequest(DateTime ExpiresAt);

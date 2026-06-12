@@ -67,7 +67,7 @@ public sealed class EnrollmentService : IEnrollmentService
         _db.Enrollments.Add(enrollment);
         await _db.SaveChangesAsync(ct);
 
-        return Result<EnrollmentDto>.Success(Map(enrollment));
+        return Result<EnrollmentDto>.Success(await MapAsync(enrollment, ct));
     }
 
     public Task<IReadOnlyList<EnrollmentDto>> GetMyEnrollmentsAsync(
@@ -82,7 +82,10 @@ public sealed class EnrollmentService : IEnrollmentService
             .OrderByDescending(e => e.EnrolledAt)
             .ToListAsync(ct);
 
-        return rows.Select(Map).ToList();
+        var result = new List<EnrollmentDto>(rows.Count);
+        foreach (var row in rows)
+            result.Add(await MapAsync(row, ct));
+        return result;
     }
 
     public async Task<Result<EnrollmentDto>> ExtendEnrollmentAsync(
@@ -99,9 +102,19 @@ public sealed class EnrollmentService : IEnrollmentService
         enrollment.ExpiresAt = expiresAt;
         await _db.SaveChangesAsync(ct);
 
-        return Result<EnrollmentDto>.Success(Map(enrollment));
+        return Result<EnrollmentDto>.Success(await MapAsync(enrollment, ct));
     }
 
-    private static EnrollmentDto Map(EnrollmentEntity e) =>
-        new(e.BundleId, e.BundleTitle, e.PricePaid, e.EnrolledAt, e.ExpiresAt, e.IsActive);
+    private async Task<EnrollmentDto> MapAsync(EnrollmentEntity e, CancellationToken ct)
+    {
+        var bundle = await _catalog.GetBundleAsync(e.BundleId, ct);
+        return new EnrollmentDto(
+            e.BundleId,
+            e.BundleTitle,
+            e.PricePaid,
+            e.EnrolledAt,
+            e.ExpiresAt,
+            e.IsActive,
+            bundle?.VideosOnly ?? false);
+    }
 }

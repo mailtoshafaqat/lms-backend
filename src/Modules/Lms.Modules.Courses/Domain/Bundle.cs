@@ -10,5 +10,8 @@ public sealed class Bundle : TenantEntity
     public int ValidityDays { get; set; } = 365;
     public bool IsPublished { get; set; } = true;
 
+    /// <summary>When true, students enrolled in this bundle get video-library access only (no quizzes/live UI).</summary>
+    public bool VideosOnly { get; set; }
+
     public ICollection<Subject> Subjects { get; set; } = new List<Subject>();
 }

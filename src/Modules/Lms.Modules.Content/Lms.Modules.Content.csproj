@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Lms.Shared\Lms.Shared.csproj" />
+    <ProjectReference Include="..\Lms.Modules.Courses\Lms.Modules.Courses.csproj" />
   </ItemGroup>
 
 </Project>

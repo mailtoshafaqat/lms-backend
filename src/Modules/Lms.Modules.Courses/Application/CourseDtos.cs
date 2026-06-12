@@ -1,6 +1,6 @@
 namespace Lms.Modules.Courses.Application;
 
-public sealed record BundleDto(Guid Id, string Title, int SubjectCount, decimal Price);
+public sealed record BundleDto(Guid Id, string Title, int SubjectCount, decimal Price, bool VideosOnly);
 
 public sealed record BundleDetailDto(Guid Id, string Title, IReadOnlyList<SubjectDto> Subjects);
 

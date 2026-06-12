@@ -13,7 +13,7 @@ public sealed class CourseService : ICourseService
         await _db.Bundles
             .Where(b => b.IsPublished)
             .OrderBy(b => b.Title)
-            .Select(b => new BundleDto(b.Id, b.Title, b.Subjects.Count, b.Price))
+            .Select(b => new BundleDto(b.Id, b.Title, b.Subjects.Count, b.Price, b.VideosOnly))
             .ToListAsync(ct);
 
     public async Task<BundleDetailDto?> GetBundleAsync(Guid bundleId, CancellationToken ct = default)

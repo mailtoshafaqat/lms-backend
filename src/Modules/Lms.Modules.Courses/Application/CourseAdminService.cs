@@ -25,11 +25,12 @@ public sealed class CourseAdminService : ICourseAdminService
             Title = req.Title.Trim(),
             Price = req.Price,
             ValidityDays = req.ValidityDays <= 0 ? 365 : req.ValidityDays,
-            IsPublished = true
+            IsPublished = true,
+            VideosOnly = req.VideosOnly
         };
         _db.Bundles.Add(bundle);
         await _db.SaveChangesAsync(ct);
-        return new BundleDto(bundle.Id, bundle.Title, 0, bundle.Price);
+        return new BundleDto(bundle.Id, bundle.Title, 0, bundle.Price, bundle.VideosOnly);
     }
 
     public async Task<Result<BundleDto>> UpdateBundleAsync(
@@ -44,10 +45,13 @@ public sealed class CourseAdminService : ICourseAdminService
         bundle.Price = req.Price;
         if (req.ValidityDays is > 0)
             bundle.ValidityDays = req.ValidityDays.Value;
+        if (req.VideosOnly is not null)
+            bundle.VideosOnly = req.VideosOnly.Value;
 
         await _db.SaveChangesAsync(ct);
         var subjectCount = await _db.Subjects.CountAsync(s => s.BundleId == bundleId, ct);
-        return Result<BundleDto>.Success(new BundleDto(bundle.Id, bundle.Title, subjectCount, bundle.Price));
+        return Result<BundleDto>.Success(
+            new BundleDto(bundle.Id, bundle.Title, subjectCount, bundle.Price, bundle.VideosOnly));
     }
 
     public async Task<Result<SubjectDto>> CreateSubjectAsync(Guid bundleId, CreateSubjectRequest req, CancellationToken ct = default)

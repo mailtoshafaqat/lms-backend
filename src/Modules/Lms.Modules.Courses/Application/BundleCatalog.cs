@@ -13,6 +13,6 @@ public sealed class BundleCatalog : IBundleCatalog
     public async Task<BundleSummary?> GetBundleAsync(Guid bundleId, CancellationToken ct = default) =>
         await _db.Bundles
             .Where(b => b.Id == bundleId)
-            .Select(b => new BundleSummary(b.Id, b.Title, b.Price, b.ValidityDays, b.IsPublished))
+            .Select(b => new BundleSummary(b.Id, b.Title, b.Price, b.ValidityDays, b.IsPublished, b.VideosOnly))
             .FirstOrDefaultAsync(ct);
 }

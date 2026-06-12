@@ -81,6 +81,19 @@ builder.Services
             NameClaimType = ClaimTypes.NameIdentifier,
             RoleClaimType = ClaimTypes.Role
         };
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                if (!context.Request.Path.StartsWithSegments("/api/v1/files"))
+                    return Task.CompletedTask;
+
+                var accessToken = context.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(accessToken))
+                    context.Token = accessToken;
+                return Task.CompletedTask;
+            }
+        };
     });
 
 builder.Services.AddAuthorizationBuilder()
@@ -144,6 +157,10 @@ if (app.Environment.IsDevelopment())
 
     var coursesDb = sp.GetRequiredService<CoursesDbContext>();
     await coursesDb.Database.MigrateAsync();
+    await coursesDb.Database.ExecuteSqlRawAsync("""
+        IF COL_LENGTH('courses.Bundles', 'VideosOnly') IS NULL
+            ALTER TABLE courses.Bundles ADD VideosOnly bit NOT NULL CONSTRAINT DF_Bundles_VideosOnly DEFAULT 0;
+        """);
     await Lms.Modules.Courses.Application.SubjectCatalogSeeder.EnsureDefaultTenantAsync(coursesDb);
     await CourseSeeder.SeedAsync(coursesDb);
     await Lms.Modules.Courses.Application.SubjectCatalogMigrator.MigrateUnlinkedSubjectsAsync(coursesDb);

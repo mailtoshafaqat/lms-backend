@@ -1,3 +1,4 @@
+using Lms.Modules.Content.Application;
 using Lms.Shared.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -15,19 +16,46 @@ public sealed class FilesController : ControllerBase
         "image/png", "image/jpeg", "image/webp", "image/gif", "image/svg+xml"
     };
 
+    private static readonly HashSet<string> LectureVideoTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "video/mp4", "video/webm", "video/quicktime", "application/octet-stream"
+    };
+
+    private static readonly HashSet<string> NoteDocumentTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/octet-stream"
+    };
+
     private readonly IFileStorage _storage;
 
     public FilesController(IFileStorage storage) => _storage = storage;
 
-    /// <summary>Streams a stored file. In production these would be signed/short-lived URLs.</summary>
+    /// <summary>Streams a stored file. Lecture/note keys require authentication.</summary>
     [HttpGet("files/{*key}")]
     public async Task<IActionResult> Download(string key, CancellationToken ct)
     {
+        if (StoredFilePaths.RequiresAuthentication(key)
+            && !(User.Identity?.IsAuthenticated ?? false))
+            return Unauthorized();
+
         var stream = await _storage.OpenAsync(key, ct);
         if (stream is null) return NotFound();
 
         var provider = new FileExtensionContentTypeProvider();
         var contentType = provider.TryGetContentType(key, out var ct2) ? ct2 : "application/octet-stream";
+
+        if (StoredFilePaths.IsLectureKey(key))
+        {
+            Response.Headers.ContentDisposition = "inline";
+            return File(stream, contentType, enableRangeProcessing: true);
+        }
+
+        if (StoredFilePaths.IsNoteKey(key))
+            return File(stream, contentType, Path.GetFileName(key));
+
         return File(stream, contentType, enableRangeProcessing: true);
     }
 
@@ -47,6 +75,26 @@ public sealed class FilesController : ControllerBase
                 return BadRequest(new { error = "Image must be 2 MB or smaller." });
             if (!BrandingImageTypes.Contains(file.ContentType))
                 return BadRequest(new { error = "Image must be PNG, JPEG, WebP, GIF, or SVG." });
+        }
+        else if (safeFolder.Equals("lectures", StringComparison.OrdinalIgnoreCase))
+        {
+            var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (ext is not (".mp4" or ".webm" or ".mov" or ".m4v"))
+                return BadRequest(new { error = "Lecture video must be MP4, WebM, or MOV." });
+            if (!string.IsNullOrWhiteSpace(file.ContentType)
+                && !LectureVideoTypes.Contains(file.ContentType))
+                return BadRequest(new { error = "Unsupported lecture video type." });
+        }
+        else if (safeFolder.Equals("notes", StringComparison.OrdinalIgnoreCase))
+        {
+            if (file.Length > 25 * 1024 * 1024)
+                return BadRequest(new { error = "Note file must be 25 MB or smaller." });
+            var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (ext is not (".pdf" or ".doc" or ".docx"))
+                return BadRequest(new { error = "Notes must be PDF, DOC, or DOCX." });
+            if (!string.IsNullOrWhiteSpace(file.ContentType)
+                && !NoteDocumentTypes.Contains(file.ContentType))
+                return BadRequest(new { error = "Unsupported note document type." });
         }
 
         var key = $"{safeFolder}/{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
