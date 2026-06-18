@@ -5,6 +5,7 @@ using Lms.Shared.Common;
 using Lms.Shared.Courses;
 using Lms.Shared.Email;
 using Lms.Shared.Enrollments;
+using Lms.Shared.Notifications;
 using Lms.Shared.Tenancy;
 using Lms.Shared.Users;
 using Microsoft.EntityFrameworkCore;
@@ -25,6 +26,7 @@ public sealed class DoubtService : IDoubtService
     private readonly IInstituteUserReader _instituteUsers;
     private readonly IEmailSender _email;
     private readonly IBrandedEmailRenderer _brandedEmail;
+    private readonly IStudentNotificationService _studentNotifications;
     private readonly IConfiguration _config;
     private readonly ILogger<DoubtService> _logger;
 
@@ -39,6 +41,7 @@ public sealed class DoubtService : IDoubtService
         IInstituteUserReader instituteUsers,
         IEmailSender email,
         IBrandedEmailRenderer brandedEmail,
+        IStudentNotificationService studentNotifications,
         IConfiguration config,
         ILogger<DoubtService> logger)
     {
@@ -52,6 +55,7 @@ public sealed class DoubtService : IDoubtService
         _instituteUsers = instituteUsers;
         _email = email;
         _brandedEmail = brandedEmail;
+        _studentNotifications = studentNotifications;
         _config = config;
         _logger = logger;
     }
@@ -268,6 +272,22 @@ public sealed class DoubtService : IDoubtService
         thread.UpdatedAt = now;
         _db.DoubtMessages.Add(message);
         await _db.SaveChangesAsync(ct);
+
+        try
+        {
+            await _studentNotifications.NotifyAsync(new CreateStudentNotificationRequest(
+                _tenant.TenantId,
+                thread.StudentUserId,
+                "Teacher replied to your doubt",
+                $"{authorName} replied to your question in {thread.SubjectTitle}.",
+                "/doubts",
+                SendEmail: true,
+                EmailSubject: $"Reply: {thread.Title}"), ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed student notification for doubt reply {ThreadId}", threadId);
+        }
 
         return Result<DoubtThreadDetailDto>.Success(MapDetail(thread, thread.Messages));
     }

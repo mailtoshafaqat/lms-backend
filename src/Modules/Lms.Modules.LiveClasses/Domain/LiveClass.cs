@@ -35,4 +35,6 @@ public sealed class LiveClass : TenantEntity
     public string? RecordingUrl { get; set; }
     public Guid? RecordingTopicId { get; set; }
     public Guid? RecordingLectureId { get; set; }
+
+    public DateTime? ReminderNotifiedAtUtc { get; set; }
 }

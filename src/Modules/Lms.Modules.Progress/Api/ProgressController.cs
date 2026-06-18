@@ -16,6 +16,9 @@ public sealed class ProgressController : ControllerBase
     private readonly IWeaknessQuizService _weaknessQuiz;
     private readonly IVideoProgressService _videoProgress;
     private readonly ICertificateService _certificates;
+    private readonly IStudentProgramService _program;
+    private readonly IStudentStatsService _stats;
+    private readonly IStudentNotificationQueryService _notifications;
     private readonly ICurrentUser _currentUser;
 
     public ProgressController(
@@ -25,6 +28,9 @@ public sealed class ProgressController : ControllerBase
         IWeaknessQuizService weaknessQuiz,
         IVideoProgressService videoProgress,
         ICertificateService certificates,
+        IStudentProgramService program,
+        IStudentStatsService stats,
+        IStudentNotificationQueryService notifications,
         ICurrentUser currentUser)
     {
         _progress = progress;
@@ -33,6 +39,9 @@ public sealed class ProgressController : ControllerBase
         _weaknessQuiz = weaknessQuiz;
         _videoProgress = videoProgress;
         _certificates = certificates;
+        _program = program;
+        _stats = stats;
+        _notifications = notifications;
         _currentUser = currentUser;
     }
 
@@ -52,6 +61,56 @@ public sealed class ProgressController : ControllerBase
         var userId = _currentUser.UserId;
         if (userId is null) return Unauthorized();
         return Ok(await _progress.GetDashboardOverviewAsync(userId.Value, ct));
+    }
+
+    [Authorize]
+    [HttpGet("me/program")]
+    public async Task<IActionResult> MyProgram(CancellationToken ct)
+    {
+        var userId = _currentUser.UserId;
+        if (userId is null) return Unauthorized();
+        return Ok(await _program.GetMyProgramAsync(userId.Value, ct));
+    }
+
+    [Authorize]
+    [HttpGet("me/stats")]
+    public async Task<IActionResult> MyStats(CancellationToken ct)
+    {
+        var userId = _currentUser.UserId;
+        if (userId is null) return Unauthorized();
+        return Ok(await _stats.GetMyStatsAsync(userId.Value, ct));
+    }
+
+    [Authorize]
+    [HttpGet("me/notifications")]
+    public async Task<IActionResult> MyNotifications(CancellationToken ct)
+    {
+        var userId = _currentUser.UserId;
+        if (userId is null) return Unauthorized();
+        var items = await _notifications.ListAsync(userId.Value, ct);
+        var unread = await _notifications.GetUnreadCountAsync(userId.Value, ct);
+        return Ok(new { unreadCount = unread, items });
+    }
+
+    [Authorize]
+    [HttpPost("me/notifications/{id:guid}/read")]
+    public async Task<IActionResult> MarkNotificationRead(Guid id, CancellationToken ct)
+    {
+        var userId = _currentUser.UserId;
+        if (userId is null) return Unauthorized();
+        return await _notifications.MarkReadAsync(userId.Value, id, ct)
+            ? Ok(new { read = true })
+            : NotFound();
+    }
+
+    [Authorize]
+    [HttpPost("me/notifications/read-all")]
+    public async Task<IActionResult> MarkAllNotificationsRead(CancellationToken ct)
+    {
+        var userId = _currentUser.UserId;
+        if (userId is null) return Unauthorized();
+        var count = await _notifications.MarkAllReadAsync(userId.Value, ct);
+        return Ok(new { marked = count });
     }
 
     [Authorize]

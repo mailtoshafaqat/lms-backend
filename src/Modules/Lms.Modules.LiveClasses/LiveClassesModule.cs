@@ -1,5 +1,6 @@
 using Lms.Modules.LiveClasses.Application;
 using Lms.Modules.LiveClasses.Infrastructure;
+using Lms.Shared.LiveClasses;
 using Lms.Shared.Modules;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -19,6 +20,7 @@ public sealed class LiveClassesModule : IModule
                 sql => sql.MigrationsHistoryTable("__EFMigrationsHistory", "live")));
 
         services.AddScoped<ILiveClassService, LiveClassService>();
+        services.AddScoped<ILiveClassReminderReader, LiveClassReminderReader>();
         services.AddHttpClient<IZoomMeetingService, ZoomMeetingService>();
     }
 }

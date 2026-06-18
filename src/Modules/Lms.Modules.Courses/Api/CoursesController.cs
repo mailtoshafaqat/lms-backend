@@ -14,17 +14,20 @@ public sealed class CoursesController : ControllerBase
     private readonly ICourseService _courses;
     private readonly ICourseContentSearch _search;
     private readonly IEnrollmentReader _enrollments;
+    private readonly ITopicNavigationService _topicNav;
     private readonly ICurrentUser _currentUser;
 
     public CoursesController(
         ICourseService courses,
         ICourseContentSearch search,
         IEnrollmentReader enrollments,
+        ITopicNavigationService topicNav,
         ICurrentUser currentUser)
     {
         _courses = courses;
         _search = search;
         _enrollments = enrollments;
+        _topicNav = topicNav;
         _currentUser = currentUser;
     }
 
@@ -50,6 +53,14 @@ public sealed class CoursesController : ControllerBase
     [HttpGet("topics/recent")]
     public async Task<IActionResult> GetRecentTopics([FromQuery] int take, CancellationToken ct) =>
         Ok(await _courses.GetRecentTopicsAsync(take <= 0 ? 3 : take, ct));
+
+    [Authorize]
+    [HttpGet("topics/{id:guid}/navigation")]
+    public async Task<IActionResult> GetTopicNavigation(Guid id, CancellationToken ct)
+    {
+        var nav = await _topicNav.GetNavigationAsync(id, ct);
+        return nav is null ? NotFound() : Ok(nav);
+    }
 
     [Authorize]
     [HttpGet("search")]

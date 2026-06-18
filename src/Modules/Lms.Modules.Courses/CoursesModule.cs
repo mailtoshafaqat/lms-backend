@@ -34,5 +34,6 @@ public sealed class CoursesModule : IModule
         services.AddScoped<ICourseTopicCatalog, CourseTopicCatalog>();
         services.AddScoped<ICourseContentSearch, CourseContentSearch>();
         services.AddScoped<ITopicFlashcardStats, TopicFlashcardStats>();
+        services.AddScoped<ITopicNavigationService, TopicNavigationService>();
     }
 }

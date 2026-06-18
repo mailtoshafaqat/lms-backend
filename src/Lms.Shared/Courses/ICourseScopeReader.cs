@@ -1,5 +1,7 @@
 namespace Lms.Shared.Courses;
 
+public sealed record OrderedTopicRef(Guid TopicId, string TopicTitle);
+
 public sealed record TopicScope(
     Guid TopicId,
     string TopicTitle,
@@ -19,6 +21,11 @@ public interface ICourseScopeReader
     Task<TopicScope?> GetTopicScopeAsync(Guid topicId, CancellationToken ct = default);
     Task<SubjectScope?> GetSubjectScopeAsync(Guid subjectId, CancellationToken ct = default);
     Task<IReadOnlyList<Guid>> GetTopicIdsForSubjectAsync(Guid subjectId, CancellationToken ct = default);
+
+    /// <summary>Topics in syllabus order (own units then shared units, each ordered by Order).</summary>
+    Task<IReadOnlyList<OrderedTopicRef>> GetOrderedTopicsForSubjectAsync(
+        Guid subjectId, CancellationToken ct = default);
+
     Task<IReadOnlyList<Guid>> GetTopicIdsForUnitAsync(Guid unitId, CancellationToken ct = default);
 
     Task<IReadOnlyDictionary<Guid, TopicScope>> GetTopicScopesAsync(

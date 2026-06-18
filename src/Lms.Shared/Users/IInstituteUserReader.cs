@@ -2,6 +2,8 @@ namespace Lms.Shared.Users;
 
 public sealed record TeacherContactDto(Guid UserId, string Email, string FullName);
 
+public sealed record StudentContactDto(Guid UserId, string Email, string FullName);
+
 /// <summary>Read-only user lookups for cross-module validation (Courses, LiveClasses, …).</summary>
 public interface IInstituteUserReader
 {
@@ -11,5 +13,8 @@ public interface IInstituteUserReader
         IEnumerable<Guid> userIds, CancellationToken ct = default);
 
     Task<IReadOnlyList<TeacherContactDto>> GetTeacherContactsAsync(
+        IEnumerable<Guid> userIds, CancellationToken ct = default);
+
+    Task<IReadOnlyList<StudentContactDto>> GetStudentContactsAsync(
         IEnumerable<Guid> userIds, CancellationToken ct = default);
 }

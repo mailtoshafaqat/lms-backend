@@ -2,6 +2,7 @@ using Lms.Modules.Assessments.Contracts;
 using Lms.Modules.Progress.Application;
 using Lms.Modules.Progress.Infrastructure;
 using Lms.Shared.Events;
+using Lms.Shared.Notifications;
 using Lms.Shared.Progress;
 using Lms.Shared.Modules;
 using Microsoft.EntityFrameworkCore;
@@ -32,8 +33,14 @@ public sealed class ProgressModule : IModule
         services.AddScoped<ICertificateTemplateService, CertificateTemplateService>();
         services.AddScoped<ICertificatePdfService, CertificatePdfService>();
         services.AddScoped<ICohortAnalyticsService, CohortAnalyticsService>();
+        services.AddScoped<IStudentNotificationService, StudentNotificationService>();
+        services.AddScoped<IStudentNotificationQueryService, StudentNotificationQueryService>();
+        services.AddScoped<IStudentProgramService, StudentProgramService>();
+        services.AddScoped<IStudentStatsService, StudentStatsService>();
 
         services.AddScoped<IEventHandler<QuizSubmittedEvent>, QuizSubmittedHandler>();
         services.AddScoped<IEventHandler<QuizSubmittedEvent>, MistakeDiaryHandler>();
+
+        services.AddHostedService<LiveClassReminderJob>();
     }
 }

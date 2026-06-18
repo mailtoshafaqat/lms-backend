@@ -55,24 +55,42 @@ public sealed class CourseScopeReader : ICourseScopeReader
 
     public async Task<IReadOnlyList<Guid>> GetTopicIdsForSubjectAsync(Guid subjectId, CancellationToken ct = default)
     {
-        var own = await _db.Topics.AsNoTracking()
-            .Where(t => t.Unit!.SubjectId == subjectId)
-            .Select(t => t.Id)
+        var ordered = await GetOrderedTopicsForSubjectAsync(subjectId, ct);
+        return ordered.Select(t => t.TopicId).ToList();
+    }
+
+    public async Task<IReadOnlyList<OrderedTopicRef>> GetOrderedTopicsForSubjectAsync(
+        Guid subjectId, CancellationToken ct = default)
+    {
+        var ownUnitIds = await _db.Units.AsNoTracking()
+            .Where(u => u.SubjectId == subjectId)
+            .OrderBy(u => u.Order)
+            .Select(u => u.Id)
             .ToListAsync(ct);
 
         var sharedUnitIds = await _db.SubjectSharedUnits.AsNoTracking()
             .Where(l => l.SubjectId == subjectId)
+            .OrderBy(l => l.Order)
             .Select(l => l.UnitId)
             .ToListAsync(ct);
 
-        if (sharedUnitIds.Count == 0) return own;
+        var unitIds = ownUnitIds.Concat(sharedUnitIds).ToList();
+        if (unitIds.Count == 0) return [];
 
-        var sharedTopics = await _db.Topics.AsNoTracking()
-            .Where(t => sharedUnitIds.Contains(t.UnitId))
-            .Select(t => t.Id)
+        var topics = await _db.Topics.AsNoTracking()
+            .Where(t => unitIds.Contains(t.UnitId))
+            .Select(t => new { t.Id, t.Title, t.UnitId, t.Order })
             .ToListAsync(ct);
 
-        return own.Concat(sharedTopics).Distinct().ToList();
+        var orderByUnit = unitIds
+            .Select((id, index) => new { id, index })
+            .ToDictionary(x => x.id, x => x.index);
+
+        return topics
+            .OrderBy(t => orderByUnit[t.UnitId])
+            .ThenBy(t => t.Order)
+            .Select(t => new OrderedTopicRef(t.Id, t.Title))
+            .ToList();
     }
 
     public async Task<IReadOnlyList<Guid>> GetTopicIdsForUnitAsync(Guid unitId, CancellationToken ct = default) =>

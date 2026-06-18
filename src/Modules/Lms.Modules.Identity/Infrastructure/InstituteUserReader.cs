@@ -37,4 +37,16 @@ public sealed class InstituteUserReader : IInstituteUserReader
             .Select(u => new TeacherContactDto(u.Id, u.Email, u.FullName))
             .ToListAsync(ct);
     }
+
+    public async Task<IReadOnlyList<StudentContactDto>> GetStudentContactsAsync(
+        IEnumerable<Guid> userIds, CancellationToken ct = default)
+    {
+        var ids = userIds.Distinct().ToList();
+        if (ids.Count == 0) return [];
+
+        return await _db.Users.AsNoTracking()
+            .Where(u => ids.Contains(u.Id) && u.Role == Roles.Student && u.IsActive)
+            .Select(u => new StudentContactDto(u.Id, u.Email, u.FullName))
+            .ToListAsync(ct);
+    }
 }

@@ -3,6 +3,8 @@ using Lms.Modules.Assessments.Domain;
 using Lms.Modules.Assessments.Infrastructure;
 using Lms.Shared.Common;
 using Lms.Shared.Courses;
+using Lms.Shared.Enrollments;
+using Lms.Shared.Notifications;
 using Lms.Shared.Tenancy;
 using Microsoft.EntityFrameworkCore;
 using JsonSerializer = System.Text.Json.JsonSerializer;
@@ -15,17 +17,23 @@ public sealed class QuizAdminService : IQuizAdminService
     private readonly ITenantContext _tenant;
     private readonly ITenantFeaturesProvider _features;
     private readonly ICourseScopeReader _scope;
+    private readonly IEnrollmentReader _enrollments;
+    private readonly IStudentNotificationService _notifications;
 
     public QuizAdminService(
         AssessmentsDbContext db,
         ITenantContext tenant,
         ITenantFeaturesProvider features,
-        ICourseScopeReader scope)
+        ICourseScopeReader scope,
+        IEnrollmentReader enrollments,
+        IStudentNotificationService notifications)
     {
         _db = db;
         _tenant = tenant;
         _features = features;
         _scope = scope;
+        _enrollments = enrollments;
+        _notifications = notifications;
     }
 
     public async Task<PagedResult<QuestionSearchHitDto>> SearchQuestionsAsync(
@@ -95,7 +103,8 @@ public sealed class QuizAdminService : IQuizAdminService
             .Select(q => q.Id)
             .FirstOrDefaultAsync(ct);
 
-        if (quizId == Guid.Empty)
+        var isNewQuiz = quizId == Guid.Empty;
+        if (isNewQuiz)
         {
             var quiz = new Quiz
             {
@@ -108,6 +117,8 @@ public sealed class QuizAdminService : IQuizAdminService
             await _db.SaveChangesAsync(ct);
             quizId = quiz.Id;
         }
+
+        var priorCount = await _db.Questions.CountAsync(q => q.QuizId == quizId, ct);
 
         var maxOrder = await _db.Questions
             .Where(q => q.QuizId == quizId)
@@ -131,6 +142,10 @@ public sealed class QuizAdminService : IQuizAdminService
         };
         _db.Questions.Add(question);
         await _db.SaveChangesAsync(ct);
+
+        if (priorCount == 0)
+            await TryNotifyQuizAvailableAsync(topicId, ct);
+
         return Result<AdminQuestionDto>.Success(ToDto(question));
     }
 
@@ -536,6 +551,26 @@ public sealed class QuizAdminService : IQuizAdminService
     {
         type = value;
         return true;
+    }
+
+    private async Task TryNotifyQuizAvailableAsync(Guid topicId, CancellationToken ct)
+    {
+        var topicScope = await _scope.GetTopicScopeAsync(topicId, ct);
+        if (topicScope is null) return;
+
+        var studentIds = await _enrollments.GetActiveUserIdsForBundleAsync(topicScope.BundleId, ct);
+        if (studentIds.Count == 0) return;
+
+        var requests = studentIds.Select(id => new CreateStudentNotificationRequest(
+            _tenant.TenantId,
+            id,
+            "Topic quiz available",
+            $"The daily practice quiz for {topicScope.TopicTitle} ({topicScope.SubjectTitle}) is ready.",
+            $"/quiz/{topicId}",
+            SendEmail: true,
+            EmailSubject: $"Quiz ready: {topicScope.TopicTitle}")).ToList();
+
+        await _notifications.NotifyManyAsync(requests, ct);
     }
 
     private static AdminQuestionDto ToDto(Question q) => new(

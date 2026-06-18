@@ -20,6 +20,7 @@ public sealed class ProgressDbContext : DbContext
     public DbSet<LectureWatchProgress> LectureWatchProgress => Set<LectureWatchProgress>();
     public DbSet<CompletionCertificate> CompletionCertificates => Set<CompletionCertificate>();
     public DbSet<CertificateTemplate> CertificateTemplates => Set<CertificateTemplate>();
+    public DbSet<UserNotification> UserNotifications => Set<UserNotification>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -85,6 +86,16 @@ public sealed class ProgressDbContext : DbContext
             e.Property(t => t.PrimaryColor).IsRequired().HasMaxLength(16);
             e.HasIndex(t => t.TenantId).IsUnique();
             e.HasQueryFilter(t => t.TenantId == _tenant.TenantId);
+        });
+
+        builder.Entity<UserNotification>(e =>
+        {
+            e.ToTable("UserNotifications");
+            e.Property(n => n.Title).IsRequired().HasMaxLength(200);
+            e.Property(n => n.Body).IsRequired().HasMaxLength(2000);
+            e.Property(n => n.LinkUrl).HasMaxLength(500);
+            e.HasIndex(n => new { n.UserId, n.IsRead, n.CreatedAt });
+            e.HasQueryFilter(n => n.TenantId == _tenant.TenantId);
         });
 
         base.OnModelCreating(builder);

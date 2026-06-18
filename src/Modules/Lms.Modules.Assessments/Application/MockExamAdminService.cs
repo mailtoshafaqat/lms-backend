@@ -2,6 +2,8 @@ using Lms.Modules.Assessments.Domain;
 using Lms.Modules.Assessments.Infrastructure;
 using Lms.Shared.Common;
 using Lms.Shared.Courses;
+using Lms.Shared.Enrollments;
+using Lms.Shared.Notifications;
 using Lms.Shared.Tenancy;
 using Lms.Shared.Users;
 using Microsoft.EntityFrameworkCore;
@@ -13,17 +15,23 @@ public sealed class MockExamAdminService : IMockExamAdminService
     private readonly AssessmentsDbContext _db;
     private readonly ITenantContext _tenant;
     private readonly ICourseScopeReader _scope;
+    private readonly IEnrollmentReader _enrollments;
+    private readonly IStudentNotificationService _notifications;
     private readonly IUserDirectory _users;
 
     public MockExamAdminService(
         AssessmentsDbContext db,
         ITenantContext tenant,
         ICourseScopeReader scope,
+        IEnrollmentReader enrollments,
+        IStudentNotificationService notifications,
         IUserDirectory users)
     {
         _db = db;
         _tenant = tenant;
         _scope = scope;
+        _enrollments = enrollments;
+        _notifications = notifications;
         _users = users;
     }
 
@@ -104,6 +112,10 @@ public sealed class MockExamAdminService : IMockExamAdminService
 
         _db.MockExams.Add(entity);
         await _db.SaveChangesAsync(ct);
+
+        if (entity.IsPublished)
+            await NotifyMockExamPublishedAsync(entity, ct);
+
         return Result<AdminMockExamDto>.Success(Map(entity));
     }
 
@@ -112,6 +124,8 @@ public sealed class MockExamAdminService : IMockExamAdminService
     {
         var entity = await LoadExamAsync(id, ct);
         if (entity is null) return Result<AdminMockExamDto>.Failure("Mock exam not found.");
+
+        var wasPublished = entity.IsPublished;
 
         var sections = NormalizeSections(request.Sections, request.Topics);
         var validation = await ValidateRequestAsync(entity.SubjectId, request.Title, request.TimeLimitMinutes,
@@ -148,6 +162,10 @@ public sealed class MockExamAdminService : IMockExamAdminService
         ApplySections(entity, sections, topicTitles);
 
         await _db.SaveChangesAsync(ct);
+
+        if (entity.IsPublished && !wasPublished)
+            await NotifyMockExamPublishedAsync(entity, ct);
+
         return Result<AdminMockExamDto>.Success(Map(entity));
     }
 
@@ -421,5 +439,22 @@ public sealed class MockExamAdminService : IMockExamAdminService
             m.BatchCompleteThresholdPercent,
             sections,
             flatTopics);
+    }
+
+    private async Task NotifyMockExamPublishedAsync(MockExam exam, CancellationToken ct)
+    {
+        var studentIds = await _enrollments.GetActiveUserIdsForBundleAsync(exam.BundleId, ct);
+        if (studentIds.Count == 0) return;
+
+        var requests = studentIds.Select(id => new CreateStudentNotificationRequest(
+            exam.TenantId,
+            id,
+            "New mock exam available",
+            $"A new mock exam {exam.Title} is now available for {exam.SubjectTitle}.",
+            "/mock-exams",
+            SendEmail: true,
+            EmailSubject: $"New mock exam: {exam.Title}")).ToList();
+
+        await _notifications.NotifyManyAsync(requests, ct);
     }
 }
