@@ -10,4 +10,8 @@ public interface IPlatformSettingsService
     Task<BrandingDto> GetBrandingAsync(CancellationToken ct = default);
     Task<BrandingDto> UpdateBrandingAsync(UpdateBrandingRequest request, CancellationToken ct = default);
     Task<BrandingDto> UpdateTenantBrandingAsync(Guid tenantId, UpdateBrandingRequest request, CancellationToken ct = default);
+    Task<PaymentSettingsDto> GetPaymentSettingsAsync(CancellationToken ct = default);
+    Task<PaymentSettingsDto> UpdatePaymentSettingsAsync(UpdatePaymentSettingsRequest request, CancellationToken ct = default);
+    Task<EnrollmentSettingsDto> GetEnrollmentSettingsAsync(CancellationToken ct = default);
+    Task<EnrollmentSettingsDto> UpdateEnrollmentSettingsAsync(UpdateEnrollmentSettingsRequest request, CancellationToken ct = default);
 }

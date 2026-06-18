@@ -1,6 +1,6 @@
 namespace Lms.Modules.Identity.Application;
 
-public sealed record CreateStudentRequest(string FullName, string Email, Guid? BundleId);
+public sealed record CreateStudentRequest(string FullName, string Email, Guid? BundleId, string? Country);
 
 public sealed record EnrollStudentRequest(Guid BundleId);
 
@@ -28,6 +28,7 @@ public sealed record StudentProfileDto(
     string FullName,
     string Email,
     string? Phone,
+    string? Country,
     string? ProfilePictureUrl,
     string? ProfileNotes,
     bool IsActive,
@@ -36,6 +37,7 @@ public sealed record StudentProfileDto(
 public sealed record UpdateStudentProfileRequest(
     string FullName,
     string? Phone,
+    string? Country,
     string? ProfilePictureUrl,
     string? ProfileNotes);
 

@@ -46,7 +46,9 @@ public sealed record UserProfile(
     string FullName,
     string Role,
     string? Phone,
-    string? ProfilePictureUrl);
+    string? Country,
+    string? ProfilePictureUrl,
+    string TenantDefaultCountry);
 
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 

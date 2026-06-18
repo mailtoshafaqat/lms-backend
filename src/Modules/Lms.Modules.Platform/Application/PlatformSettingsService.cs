@@ -1,5 +1,6 @@
 using Lms.Modules.Platform.Domain;
 using Lms.Modules.Platform.Infrastructure;
+using Lms.Shared.Payments;
 using Lms.Shared.Tenancy;
 using Microsoft.EntityFrameworkCore;
 
@@ -63,6 +64,75 @@ public sealed class PlatformSettingsService : IPlatformSettingsService
 
         await _db.SaveChangesAsync(ct);
         return MapZoom(s);
+    }
+
+    public async Task<PaymentSettingsDto> GetPaymentSettingsAsync(CancellationToken ct = default)
+    {
+        var tenant = await _db.Tenants.AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == _tenant.TenantId, ct);
+        var s = await _db.TenantSettings.AsNoTracking().FirstOrDefaultAsync(ct);
+        return MapPayments(tenant, s);
+    }
+
+    public async Task<PaymentSettingsDto> UpdatePaymentSettingsAsync(
+        UpdatePaymentSettingsRequest request, CancellationToken ct = default)
+    {
+        var tenant = await _db.Tenants.FirstOrDefaultAsync(t => t.Id == _tenant.TenantId, ct)
+            ?? throw new InvalidOperationException("Tenant not found.");
+        var s = await GetOrCreateAsync(ct);
+
+        tenant.EnrollmentModes = (EnrollmentModes)request.EnrollmentModes;
+        s.ManualPaymentInstructions = string.IsNullOrWhiteSpace(request.ManualPaymentInstructions)
+            ? null
+            : request.ManualPaymentInstructions.Trim();
+
+        var allowed = tenant.AllowedPaymentGateways;
+
+        s.ManualPaymentEnabled = request.ManualEnabled && allowed.HasFlag(PaymentGatewayFlags.Manual);
+        s.StripeEnabled = request.StripeEnabled && allowed.HasFlag(PaymentGatewayFlags.Stripe);
+        s.StripePublishableKey = request.StripePublishableKey.Trim();
+        if (!string.IsNullOrWhiteSpace(request.StripeSecretKey))
+            s.StripeSecretKey = request.StripeSecretKey;
+        if (!string.IsNullOrWhiteSpace(request.StripeWebhookSecret))
+            s.StripeWebhookSecret = request.StripeWebhookSecret;
+
+        s.JazzCashEnabled = request.JazzCashEnabled && allowed.HasFlag(PaymentGatewayFlags.JazzCash);
+        s.JazzCashMerchantId = request.JazzCashMerchantId.Trim();
+        if (!string.IsNullOrWhiteSpace(request.JazzCashPassword))
+            s.JazzCashPassword = request.JazzCashPassword;
+        if (!string.IsNullOrWhiteSpace(request.JazzCashHashKey))
+            s.JazzCashHashKey = request.JazzCashHashKey;
+        s.JazzCashReturnUrl = string.IsNullOrWhiteSpace(request.JazzCashReturnUrl)
+            ? null
+            : request.JazzCashReturnUrl.Trim();
+
+        s.EasypaisaEnabled = request.EasypaisaEnabled && allowed.HasFlag(PaymentGatewayFlags.Easypaisa);
+        s.EasypaisaStoreId = request.EasypaisaStoreId.Trim();
+        if (!string.IsNullOrWhiteSpace(request.EasypaisaHashKey))
+            s.EasypaisaHashKey = request.EasypaisaHashKey;
+        if (!string.IsNullOrWhiteSpace(request.EasypaisaCredentials))
+            s.EasypaisaCredentials = request.EasypaisaCredentials;
+
+        await _db.SaveChangesAsync(ct);
+        return MapPayments(tenant, s);
+    }
+
+    public async Task<EnrollmentSettingsDto> GetEnrollmentSettingsAsync(CancellationToken ct = default)
+    {
+        var tenant = await _db.Tenants.AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == _tenant.TenantId, ct);
+        return new EnrollmentSettingsDto(tenant?.AllowStudentSelfEnroll ?? false);
+    }
+
+    public async Task<EnrollmentSettingsDto> UpdateEnrollmentSettingsAsync(
+        UpdateEnrollmentSettingsRequest request, CancellationToken ct = default)
+    {
+        var tenant = await _db.Tenants.FirstOrDefaultAsync(t => t.Id == _tenant.TenantId, ct)
+            ?? throw new InvalidOperationException("Tenant not found.");
+
+        tenant.AllowStudentSelfEnroll = request.AllowStudentSelfEnroll;
+        await _db.SaveChangesAsync(ct);
+        return new EnrollmentSettingsDto(tenant.AllowStudentSelfEnroll);
     }
 
     public async Task<BrandingDto?> GetPublicBrandingAsync(string slug, CancellationToken ct = default)
@@ -149,7 +219,8 @@ public sealed class PlatformSettingsService : IPlatformSettingsService
             mentorName,
             tenant?.SyllabusMentorEnabled ?? true,
             tenant?.BundlePriceEditEnabled ?? true,
-            tenant?.McqBulkImportEnabled ?? true);
+            tenant?.McqBulkImportEnabled ?? true,
+            tenant?.AllowStudentSelfEnroll ?? false);
     }
 
     private async Task<TenantSettings> GetOrCreateAsync(CancellationToken ct)
@@ -171,6 +242,31 @@ public sealed class PlatformSettingsService : IPlatformSettingsService
 
     private static ZoomSettingsDto MapZoom(TenantSettings s) =>
         new(s.ZoomEnabled, s.ZoomAccountId, s.ZoomClientId, !string.IsNullOrEmpty(s.ZoomClientSecret));
+
+    private static PaymentSettingsDto MapPayments(Tenant? tenant, TenantSettings? s)
+    {
+        var modes = tenant?.EnrollmentModes ?? EnrollmentModes.AdminOnly;
+        return new PaymentSettingsDto(
+            (int)modes,
+            s?.ManualPaymentInstructions,
+            new ManualGatewaySettingsDto(s?.ManualPaymentEnabled ?? false),
+            new StripeGatewaySettingsDto(
+                s?.StripeEnabled ?? false,
+                s?.StripePublishableKey ?? string.Empty,
+                !string.IsNullOrEmpty(s?.StripeSecretKey),
+                !string.IsNullOrEmpty(s?.StripeWebhookSecret)),
+            new JazzCashGatewaySettingsDto(
+                s?.JazzCashEnabled ?? false,
+                s?.JazzCashMerchantId ?? string.Empty,
+                !string.IsNullOrEmpty(s?.JazzCashPassword),
+                !string.IsNullOrEmpty(s?.JazzCashHashKey),
+                s?.JazzCashReturnUrl),
+            new EasypaisaGatewaySettingsDto(
+                s?.EasypaisaEnabled ?? false,
+                s?.EasypaisaStoreId ?? string.Empty,
+                !string.IsNullOrEmpty(s?.EasypaisaHashKey),
+                !string.IsNullOrEmpty(s?.EasypaisaCredentials)));
+    }
 
     private static EmailSettingsDto Empty() =>
         new(false, string.Empty, string.Empty, string.Empty, 587, string.Empty, false, true);

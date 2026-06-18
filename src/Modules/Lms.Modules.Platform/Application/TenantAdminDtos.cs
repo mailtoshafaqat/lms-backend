@@ -1,5 +1,7 @@
 using Lms.Shared.Tenancy;
 
+using Lms.Shared.Payments;
+
 namespace Lms.Modules.Platform.Application;
 
 public sealed record TenantListItemDto(
@@ -36,6 +38,10 @@ public sealed record TenantDetailDto(
     bool BundlePriceEditEnabled,
     bool McqBulkImportEnabled,
     DateTime? TrialEndsAt,
+    string Country,
+    string Currency,
+    int AllowedPaymentGateways,
+    int EnrollmentModes,
     DateTime CreatedAt);
 
 public sealed record CreateTenantRequest(
@@ -57,6 +63,10 @@ public sealed record UpdateTenantFlagsRequest(
     bool SyllabusMentorEnabled,
     bool BundlePriceEditEnabled,
     bool McqBulkImportEnabled,
-    DateTime? TrialEndsAt = null);
+    DateTime? TrialEndsAt = null,
+    string Country = "PK",
+    string Currency = "PKR",
+    int AllowedPaymentGateways = 0,
+    int EnrollmentModes = 0);
 
 public sealed record CreateTenantAdminRequest(string FullName, string Email);

@@ -4,6 +4,7 @@ using Lms.Shared.Common;
 using Lms.Shared.Storage;
 using Microsoft.Extensions.Options;
 using Lms.Shared.Courses;
+using Lms.Shared.Payments;
 using Lms.Shared.Tenancy;
 using Lms.Shared.Users;
 using Microsoft.EntityFrameworkCore;
@@ -115,6 +116,14 @@ public sealed class TenantAdminService : ITenantAdminService
         tenant.SyllabusMentorEnabled = request.SyllabusMentorEnabled;
         tenant.BundlePriceEditEnabled = request.BundlePriceEditEnabled;
         tenant.McqBulkImportEnabled = request.McqBulkImportEnabled;
+        tenant.Country = string.IsNullOrWhiteSpace(request.Country)
+            ? "PK"
+            : request.Country.Trim().ToUpperInvariant()[..Math.Min(2, request.Country.Trim().Length)];
+        tenant.Currency = string.IsNullOrWhiteSpace(request.Currency)
+            ? "PKR"
+            : request.Currency.Trim().ToUpperInvariant()[..Math.Min(3, request.Currency.Trim().Length)];
+        tenant.AllowedPaymentGateways = (PaymentGatewayFlags)request.AllowedPaymentGateways;
+        tenant.EnrollmentModes = (EnrollmentModes)request.EnrollmentModes;
 
         var domain = string.IsNullOrWhiteSpace(request.CustomDomain)
             ? null
@@ -157,5 +166,6 @@ public sealed class TenantAdminService : ITenantAdminService
         t.Id, t.Name, t.Slug, t.CustomDomain, t.Status, t.Plan, t.ProductProfile,
         t.LiveClassesEnabled, t.ZoomMode, t.PaymentMode,
         t.AllowStudentSelfEnroll, t.AllowAdminCreateStudent, t.SyllabusMentorEnabled,
-        t.BundlePriceEditEnabled, t.McqBulkImportEnabled, t.TrialEndsAt, t.CreatedAt);
+        t.BundlePriceEditEnabled, t.McqBulkImportEnabled, t.TrialEndsAt,
+        t.Country, t.Currency, (int)t.AllowedPaymentGateways, (int)t.EnrollmentModes, t.CreatedAt);
 }

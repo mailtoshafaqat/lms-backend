@@ -6,6 +6,7 @@ using Lms.Shared.Auth;
 using Lms.Shared.Common;
 using Lms.Shared.Email;
 using Lms.Shared.Events;
+using Lms.Shared.Payments;
 using Lms.Shared.Tenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -21,6 +22,7 @@ public sealed class AuthService : IAuthService
     private readonly IJwtTokenService _tokens;
     private readonly ITenantContext _tenant;
     private readonly ITenantFeaturesProvider _tenantFeatures;
+    private readonly ITenantPaymentSettingsProvider _paymentSettings;
     private readonly IEmailSender _email;
     private readonly IBrandedEmailRenderer _brandedEmail;
     private readonly IConfiguration _config;
@@ -34,6 +36,7 @@ public sealed class AuthService : IAuthService
         IJwtTokenService tokens,
         ITenantContext tenant,
         ITenantFeaturesProvider tenantFeatures,
+        ITenantPaymentSettingsProvider paymentSettings,
         IEmailSender email,
         IBrandedEmailRenderer brandedEmail,
         IConfiguration config,
@@ -46,6 +49,7 @@ public sealed class AuthService : IAuthService
         _tokens = tokens;
         _tenant = tenant;
         _tenantFeatures = tenantFeatures;
+        _paymentSettings = paymentSettings;
         _email = email;
         _brandedEmail = brandedEmail;
         _config = config;
@@ -56,6 +60,18 @@ public sealed class AuthService : IAuthService
 
     public async Task<Result<AuthResponse>> RegisterAsync(RegisterRequest request, CancellationToken ct = default)
     {
+        var features = await _tenantFeatures.GetAsync(_tenant.TenantId, ct);
+        if (features is null)
+            return Result<AuthResponse>.Failure("Institute account not found.");
+        if (!features.AllowStudentSelfEnroll)
+            return Result<AuthResponse>.Failure(
+                "Self signup is not enabled for this institute. Contact your administrator.");
+        if (features.Status == TenantStatus.Suspended)
+            return Result<AuthResponse>.Failure("This institute account is suspended. Contact support.");
+        if (TenantTrial.IsExpired(features.Status, features.TrialEndsAt))
+            return Result<AuthResponse>.Failure(
+                "This institute is temporarily unavailable. Please contact your academy.");
+
         var email = request.Email.Trim().ToLowerInvariant();
 
         if (await _db.Users.AnyAsync(u => u.Email == email, ct))
@@ -293,9 +309,19 @@ public sealed class AuthService : IAuthService
         if (userId == Guid.Empty) return null;
 
         var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId, ct);
-        return user is null
-            ? null
-            : new UserProfile(
-                user.Id, user.Email, user.FullName, user.Role, user.Phone, user.ProfilePictureUrl);
+        if (user is null) return null;
+
+        var settings = await _paymentSettings.GetAsync(ct);
+        var tenantDefaultCountry = settings?.Country ?? "PK";
+
+        return new UserProfile(
+            user.Id,
+            user.Email,
+            user.FullName,
+            user.Role,
+            user.Phone,
+            user.Country,
+            user.ProfilePictureUrl,
+            tenantDefaultCountry);
     }
 }

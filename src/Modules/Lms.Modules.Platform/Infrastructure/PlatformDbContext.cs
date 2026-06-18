@@ -32,6 +32,8 @@ public sealed class PlatformDbContext : DbContext
             e.Property(t => t.Name).IsRequired().HasMaxLength(200);
             e.Property(t => t.Slug).IsRequired().HasMaxLength(64);
             e.Property(t => t.CustomDomain).HasMaxLength(256);
+            e.Property(t => t.Country).IsRequired().HasMaxLength(2);
+            e.Property(t => t.Currency).IsRequired().HasMaxLength(3);
             e.HasIndex(t => t.Slug).IsUnique();
             e.HasIndex(t => t.CustomDomain).IsUnique().HasFilter("[CustomDomain] IS NOT NULL");
         });
@@ -51,6 +53,10 @@ public sealed class PlatformDbContext : DbContext
             e.Property(s => s.PrimaryColor).HasMaxLength(16);
             e.Property(s => s.SupportEmail).HasMaxLength(256);
             e.Property(s => s.FaviconUrl).HasMaxLength(1000);
+            e.Property(s => s.StripePublishableKey).HasMaxLength(256);
+            e.Property(s => s.JazzCashMerchantId).HasMaxLength(64);
+            e.Property(s => s.JazzCashReturnUrl).HasMaxLength(512);
+            e.Property(s => s.EasypaisaStoreId).HasMaxLength(64);
             e.HasQueryFilter(s => s.TenantId == _tenant.TenantId);
         });
 

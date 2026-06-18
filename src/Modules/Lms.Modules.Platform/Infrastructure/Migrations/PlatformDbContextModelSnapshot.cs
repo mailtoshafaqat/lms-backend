@@ -160,15 +160,31 @@ namespace Lms.Modules.Platform.Infrastructure.Migrations
                     b.Property<bool>("AllowStudentSelfEnroll")
                         .HasColumnType("bit");
 
+                    b.Property<int>("AllowedPaymentGateways")
+                        .HasColumnType("int");
+
                     b.Property<bool>("BundlePriceEditEnabled")
                         .HasColumnType("bit");
+
+                    b.Property<string>("Country")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
                     b.Property<string>("CustomDomain")
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
+
+                    b.Property<int>("EnrollmentModes")
+                        .HasColumnType("int");
 
                     b.Property<bool>("LiveClassesEnabled")
                         .HasColumnType("bit");
@@ -243,6 +259,19 @@ namespace Lms.Modules.Platform.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<string>("EasypaisaCredentials")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("EasypaisaEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("EasypaisaHashKey")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("EasypaisaStoreId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.Property<bool>("EmailEnabled")
                         .HasColumnType("bit");
 
@@ -260,9 +289,32 @@ namespace Lms.Modules.Platform.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<bool>("JazzCashEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("JazzCashHashKey")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("JazzCashMerchantId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("JazzCashPassword")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("JazzCashReturnUrl")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
                     b.Property<string>("LogoUrl")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
+
+                    b.Property<bool>("ManualPaymentEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ManualPaymentInstructions")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("MentorDisplayName")
                         .HasColumnType("nvarchar(max)");
@@ -287,6 +339,19 @@ namespace Lms.Modules.Platform.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
+
+                    b.Property<bool>("StripeEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("StripePublishableKey")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("StripeSecretKey")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("StripeWebhookSecret")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("SupportEmail")
                         .HasMaxLength(256)

@@ -18,6 +18,9 @@ public sealed class User : TenantEntity
     /// <summary>Student contact number (set by institute admin).</summary>
     public string? Phone { get; set; }
 
+    /// <summary>ISO 3166-1 alpha-2 country code for payment routing.</summary>
+    public string? Country { get; set; }
+
     /// <summary>Public URL path e.g. /api/v1/files/students/…</summary>
     public string? ProfilePictureUrl { get; set; }
 

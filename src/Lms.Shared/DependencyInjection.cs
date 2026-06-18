@@ -1,4 +1,5 @@
 using Lms.Shared.Auth;
+using Lms.Shared.Configuration;
 using Lms.Shared.Events;
 using Lms.Shared.Storage;
 using Lms.Shared.Tenancy;
@@ -19,6 +20,10 @@ public static class DependencyInjection
 
         services.Configure<FileStorageOptions>(configuration.GetSection(FileStorageOptions.SectionName));
         services.Configure<StorageQuotaOptions>(configuration.GetSection(StorageQuotaOptions.SectionName));
+        services.Configure<AppUrlOptions>(configuration.GetSection(AppUrlOptions.SectionName));
+        services.Configure<PaymentsOptions>(configuration.GetSection(PaymentsOptions.SectionName));
+        services.AddSingleton<IAppUrls, AppUrls>();
+
         services.AddSingleton<IFileStorage, LocalDiskFileStorage>();
         return services;
     }

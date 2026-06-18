@@ -17,7 +17,7 @@ public sealed class EnrollmentWriter : IEnrollmentWriter
         if (!result.Succeeded || result.Value is null) return null;
 
         var e = result.Value;
-        return new EnrollmentSummary(e.BundleId, e.BundleTitle, e.ExpiresAt);
+        return new EnrollmentSummary(e.Id, e.BundleId, e.BundleTitle, e.ExpiresAt);
     }
 
     public async Task<EnrollmentSummary?> ExtendEnrollmentAsync(
@@ -27,7 +27,7 @@ public sealed class EnrollmentWriter : IEnrollmentWriter
         if (!result.Succeeded || result.Value is null) return null;
 
         var e = result.Value;
-        return new EnrollmentSummary(e.BundleId, e.BundleTitle, e.ExpiresAt);
+        return new EnrollmentSummary(e.Id, e.BundleId, e.BundleTitle, e.ExpiresAt);
     }
 }
 
@@ -55,7 +55,7 @@ public sealed class EnrollmentReader : IEnrollmentReader
         return await _db.Enrollments
             .Where(e => e.UserId == userId && e.ExpiresAt > now)
             .OrderByDescending(e => e.ExpiresAt)
-            .Select(e => new EnrollmentSummary(e.BundleId, e.BundleTitle, e.ExpiresAt))
+            .Select(e => new EnrollmentSummary(e.Id, e.BundleId, e.BundleTitle, e.ExpiresAt))
             .ToListAsync(ct);
     }
 

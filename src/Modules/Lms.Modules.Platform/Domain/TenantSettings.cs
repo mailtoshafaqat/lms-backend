@@ -1,4 +1,5 @@
 using Lms.Shared.Entities;
+using Lms.Shared.Payments;
 
 namespace Lms.Modules.Platform.Domain;
 
@@ -30,4 +31,21 @@ public sealed class TenantSettings : TenantEntity
 
     /// <summary>UI label for Syllabus Mentor (e.g. "Demo Academy Mentor"). Falls back to "{DisplayName} Mentor".</summary>
     public string? MentorDisplayName { get; set; }
+
+    // Tenant-managed payments (institute merchant accounts).
+    public string? ManualPaymentInstructions { get; set; }
+    public bool ManualPaymentEnabled { get; set; }
+    public bool StripeEnabled { get; set; }
+    public string? StripePublishableKey { get; set; }
+    public string? StripeSecretKey { get; set; }
+    public string? StripeWebhookSecret { get; set; }
+    public bool JazzCashEnabled { get; set; }
+    public string? JazzCashMerchantId { get; set; }
+    public string? JazzCashPassword { get; set; }
+    public string? JazzCashHashKey { get; set; }
+    public string? JazzCashReturnUrl { get; set; }
+    public bool EasypaisaEnabled { get; set; }
+    public string? EasypaisaStoreId { get; set; }
+    public string? EasypaisaHashKey { get; set; }
+    public string? EasypaisaCredentials { get; set; }
 }

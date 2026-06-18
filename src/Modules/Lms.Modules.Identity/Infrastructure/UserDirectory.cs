@@ -13,11 +13,18 @@ public sealed class UserDirectory : IUserDirectory
     public async Task<IReadOnlyDictionary<Guid, string>> GetDisplayNamesAsync(
         IEnumerable<Guid> userIds, CancellationToken ct = default)
     {
+        var contacts = await GetContactsAsync(userIds, ct);
+        return contacts.ToDictionary(kv => kv.Key, kv => kv.Value.FullName);
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, UserContactSummary>> GetContactsAsync(
+        IEnumerable<Guid> userIds, CancellationToken ct = default)
+    {
         var ids = userIds.Distinct().ToList();
-        if (ids.Count == 0) return new Dictionary<Guid, string>();
+        if (ids.Count == 0) return new Dictionary<Guid, UserContactSummary>();
 
         return await _db.Users
             .Where(u => ids.Contains(u.Id))
-            .ToDictionaryAsync(u => u.Id, u => u.FullName, ct);
+            .ToDictionaryAsync(u => u.Id, u => new UserContactSummary(u.FullName, u.Email), ct);
     }
 }

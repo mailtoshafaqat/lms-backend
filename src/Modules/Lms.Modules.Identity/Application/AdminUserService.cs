@@ -79,6 +79,7 @@ public sealed class AdminUserService : IAdminUserService
             TenantId = _tenant.TenantId,
             Email = email,
             FullName = request.FullName.Trim(),
+            Country = NormalizeCountry(request.Country),
             PasswordHash = _hasher.Hash(tempPassword),
             Role = Roles.Student,
             Provider = AuthProvider.Local,
@@ -156,6 +157,7 @@ public sealed class AdminUserService : IAdminUserService
 
         user.FullName = request.FullName.Trim();
         user.Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim();
+        user.Country = NormalizeCountry(request.Country);
         user.ProfilePictureUrl = string.IsNullOrWhiteSpace(request.ProfilePictureUrl)
             ? null
             : request.ProfilePictureUrl.Trim();
@@ -533,10 +535,16 @@ public sealed class AdminUserService : IAdminUserService
             user.FullName,
             user.Email,
             user.Phone,
+            user.Country,
             user.ProfilePictureUrl,
             user.ProfileNotes,
             user.IsActive,
             user.CreatedAt);
+
+    private static string? NormalizeCountry(string? code) =>
+        string.IsNullOrWhiteSpace(code)
+            ? null
+            : code.Trim().ToUpperInvariant()[..Math.Min(2, code.Trim().Length)];
 
     private static string GenerateTempPassword(int length = 12)
     {

@@ -1,6 +1,7 @@
 using Lms.Modules.Courses.Contracts;
 using Lms.Modules.Enrollment.Infrastructure;
 using Lms.Shared.Common;
+using Lms.Shared.Payments;
 using Lms.Shared.Tenancy;
 using Microsoft.EntityFrameworkCore;
 using EnrollmentEntity = Lms.Modules.Enrollment.Domain.Enrollment;
@@ -13,17 +14,20 @@ public sealed class EnrollmentService : IEnrollmentService
     private readonly IBundleCatalog _catalog;
     private readonly ITenantContext _tenant;
     private readonly ITenantFeaturesProvider _features;
+    private readonly ITenantPaymentSettingsProvider _payments;
 
     public EnrollmentService(
         EnrollmentDbContext db,
         IBundleCatalog catalog,
         ITenantContext tenant,
-        ITenantFeaturesProvider features)
+        ITenantFeaturesProvider features,
+        ITenantPaymentSettingsProvider payments)
     {
         _db = db;
         _catalog = catalog;
         _tenant = tenant;
         _features = features;
+        _payments = payments;
     }
 
     public async Task<Result<EnrollmentDto>> EnrollAsync(Guid userId, Guid bundleId, CancellationToken ct = default)
@@ -32,6 +36,27 @@ public sealed class EnrollmentService : IEnrollmentService
         if (tenantFlags is not null && !tenantFlags.AllowStudentSelfEnroll)
             return Result<EnrollmentDto>.Failure(
                 "Self-enrollment is disabled. Contact your institute administrator.");
+
+        var bundle = await _catalog.GetBundleAsync(bundleId, ct);
+        if (bundle is null || !bundle.IsPublished)
+            return Result<EnrollmentDto>.Failure("Bundle not found.");
+
+        var paymentSettings = await _payments.GetAsync(ct);
+        var modes = paymentSettings?.EnrollmentModes ?? EnrollmentModes.AdminOnly;
+
+        if (bundle.Price > 0)
+        {
+            var requiresPayment = modes.HasFlag(EnrollmentModes.ManualPayment)
+                || modes.HasFlag(EnrollmentModes.OnlineCheckout);
+            if (requiresPayment)
+                return Result<EnrollmentDto>.Failure(
+                    "This course requires payment. Use checkout to complete your enrollment.");
+        }
+        else if (!modes.HasFlag(EnrollmentModes.SelfEnrollFree))
+        {
+            return Result<EnrollmentDto>.Failure(
+                "Free self-enrollment is not enabled. Contact your institute administrator.");
+        }
 
         return await CreateEnrollmentAsync(userId, bundleId, ct);
     }
@@ -109,6 +134,7 @@ public sealed class EnrollmentService : IEnrollmentService
     {
         var bundle = await _catalog.GetBundleAsync(e.BundleId, ct);
         return new EnrollmentDto(
+            e.Id,
             e.BundleId,
             e.BundleTitle,
             e.PricePaid,

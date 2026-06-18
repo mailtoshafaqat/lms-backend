@@ -22,5 +22,6 @@ public sealed class EnrollmentModule : IModule
         services.AddScoped<IEnrollmentService, EnrollmentService>();
         services.AddScoped<IEnrollmentWriter, EnrollmentWriter>();
         services.AddScoped<IEnrollmentReader, EnrollmentReader>();
+        services.AddScoped<IEnrollmentAccessGuard, EnrollmentAccessGuard>();
     }
 }

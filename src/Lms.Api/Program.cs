@@ -15,6 +15,8 @@ using Lms.Modules.Identity;
 using Lms.Modules.Identity.Infrastructure;
 using Lms.Modules.LiveClasses;
 using Lms.Modules.LiveClasses.Infrastructure;
+using Lms.Modules.Payments;
+using Lms.Modules.Payments.Infrastructure;
 using Lms.Modules.Platform;
 using Lms.Modules.Platform.Infrastructure;
 using Lms.Modules.Progress;
@@ -55,6 +57,7 @@ var moduleAssemblies = builder.Services.RegisterModules(
     new ProgressModule(),
     new PlatformModule(),
     new LiveClassesModule(),
+    new PaymentsModule(),
     new SyllabusMentorModule(),
     new QnAModule());
 
@@ -231,6 +234,9 @@ if (app.Environment.IsDevelopment())
 
     var liveDb = sp.GetRequiredService<LiveClassesDbContext>();
     await liveDb.Database.MigrateAsync();
+
+    var paymentsDb = sp.GetRequiredService<PaymentsDbContext>();
+    await paymentsDb.Database.MigrateAsync();
 
     var mentorDb = sp.GetRequiredService<SyllabusMentorDbContext>();
     await mentorDb.Database.MigrateAsync();

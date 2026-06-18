@@ -26,6 +26,7 @@
     <ProjectReference Include="..\Modules\Lms.Modules.Enrollment\Lms.Modules.Enrollment.csproj" />
     <ProjectReference Include="..\Modules\Lms.Modules.Platform\Lms.Modules.Platform.csproj" />
     <ProjectReference Include="..\Modules\Lms.Modules.LiveClasses\Lms.Modules.LiveClasses.csproj" />
+    <ProjectReference Include="..\Modules\Lms.Modules.Payments\Lms.Modules.Payments.csproj" />
     <ProjectReference Include="..\Modules\Lms.Modules.SyllabusMentor\Lms.Modules.SyllabusMentor.csproj" />
     <ProjectReference Include="..\Modules\Lms.Modules.QnA\Lms.Modules.QnA.csproj" />
   </ItemGroup>

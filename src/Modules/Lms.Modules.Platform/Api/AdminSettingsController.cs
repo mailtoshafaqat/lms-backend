@@ -35,6 +35,22 @@ public sealed class AdminSettingsController : ControllerBase
     public async Task<IActionResult> UpdateZoom([FromBody] UpdateZoomSettingsRequest req, CancellationToken ct) =>
         Ok(await _settings.UpdateZoomSettingsAsync(req, ct));
 
+    [HttpGet("payments")]
+    public async Task<IActionResult> GetPayments(CancellationToken ct) =>
+        Ok(await _settings.GetPaymentSettingsAsync(ct));
+
+    [HttpPut("payments")]
+    public async Task<IActionResult> UpdatePayments([FromBody] UpdatePaymentSettingsRequest req, CancellationToken ct) =>
+        Ok(await _settings.UpdatePaymentSettingsAsync(req, ct));
+
+    [HttpGet("enrollment")]
+    public async Task<IActionResult> GetEnrollment(CancellationToken ct) =>
+        Ok(await _settings.GetEnrollmentSettingsAsync(ct));
+
+    [HttpPut("enrollment")]
+    public async Task<IActionResult> UpdateEnrollment([FromBody] UpdateEnrollmentSettingsRequest req, CancellationToken ct) =>
+        Ok(await _settings.UpdateEnrollmentSettingsAsync(req, ct));
+
     [HttpGet("branding")]
     public async Task<IActionResult> GetBranding(CancellationToken ct) =>
         Ok(await _settings.GetBrandingAsync(ct));

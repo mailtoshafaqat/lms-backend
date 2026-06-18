@@ -1,6 +1,6 @@
 namespace Lms.Shared.Enrollments;
 
-public sealed record EnrollmentSummary(Guid BundleId, string BundleTitle, DateTime ExpiresAt);
+public sealed record EnrollmentSummary(Guid Id, Guid BundleId, string BundleTitle, DateTime ExpiresAt);
 
 /// <summary>Cross-module write contract for granting course access. Implemented by the Enrollment
 /// module; used (e.g.) by Identity when an admin provisions a student into a course.</summary>

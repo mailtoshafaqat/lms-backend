@@ -1,3 +1,4 @@
+using Lms.Shared.Payments;
 using Lms.Shared.Tenancy;
 
 namespace Lms.Modules.Platform.Domain;
@@ -20,6 +21,19 @@ public sealed class Tenant
     public bool LiveClassesEnabled { get; set; } = true;
     public ZoomMode ZoomMode { get; set; } = ZoomMode.TenantManaged;
     public PaymentMode PaymentMode { get; set; } = PaymentMode.TenantManaged;
+
+    /// <summary>ISO 3166-1 alpha-2 country code for payment routing (e.g. PK).</summary>
+    public string Country { get; set; } = "PK";
+
+    /// <summary>ISO 4217 currency code for checkout (e.g. PKR).</summary>
+    public string Currency { get; set; } = "PKR";
+
+    /// <summary>SuperAdmin: which payment gateways this tenant may configure.</summary>
+    public PaymentGatewayFlags AllowedPaymentGateways { get; set; } = PaymentGatewayFlags.None;
+
+    /// <summary>How students may enroll in bundles (free self-enroll, manual payment, online checkout).</summary>
+    public EnrollmentModes EnrollmentModes { get; set; } = EnrollmentModes.AdminOnly;
+
     public bool AllowStudentSelfEnroll { get; set; }
     public bool AllowAdminCreateStudent { get; set; } = true;
     public bool SyllabusMentorEnabled { get; set; } = true;

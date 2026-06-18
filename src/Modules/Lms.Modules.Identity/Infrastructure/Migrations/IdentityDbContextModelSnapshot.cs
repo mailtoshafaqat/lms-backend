@@ -139,6 +139,10 @@ namespace Lms.Modules.Identity.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("Country")
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)");
+
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(256)

@@ -186,4 +186,32 @@ public sealed class CourseScopeReader : ICourseScopeReader
 
         return topicIdsByBundle.ToDictionary(kv => kv.Key, kv => kv.Value.Count);
     }
+
+    public async Task<Guid?> GetBundleIdForUnitAsync(Guid unitId, CancellationToken ct = default)
+    {
+        var topicId = await _db.Topics.AsNoTracking()
+            .Where(t => t.UnitId == unitId)
+            .OrderBy(t => t.Order)
+            .Select(t => t.Id)
+            .FirstOrDefaultAsync(ct);
+
+        if (topicId != Guid.Empty)
+        {
+            var scope = await GetTopicScopeAsync(topicId, ct);
+            return scope?.BundleId;
+        }
+
+        var directBundleId = await _db.Units.AsNoTracking()
+            .Where(u => u.Id == unitId && u.SubjectId != null)
+            .Select(u => u.Subject!.BundleId)
+            .FirstOrDefaultAsync(ct);
+
+        if (directBundleId != Guid.Empty)
+            return directBundleId;
+
+        return await _db.SubjectSharedUnits.AsNoTracking()
+            .Where(l => l.UnitId == unitId)
+            .Select(l => l.Subject!.BundleId)
+            .FirstOrDefaultAsync(ct) is var shared && shared != Guid.Empty ? shared : null;
+    }
 }

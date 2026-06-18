@@ -27,6 +27,13 @@ public sealed class AuthController : ControllerBase
         return result.Succeeded ? Ok(new { reset = true }) : BadRequest(new { error = result.Error });
     }
 
+    [HttpPost("register")]
+    public async Task<IActionResult> Register([FromBody] RegisterRequest request, CancellationToken ct)
+    {
+        var result = await _auth.RegisterAsync(request, ct);
+        return result.Succeeded ? Ok(result.Value) : BadRequest(new { error = result.Error });
+    }
+
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken ct)
     {

@@ -2,8 +2,10 @@ using System.Text.Json;
 using Lms.Modules.Assessments.Contracts;
 using Lms.Modules.Assessments.Domain;
 using Lms.Modules.Assessments.Infrastructure;
+using Lms.Shared.Auth;
 using Lms.Shared.Common;
 using Lms.Shared.Courses;
+using Lms.Shared.Enrollments;
 using Lms.Shared.Events;
 using Lms.Shared.Tenancy;
 using Microsoft.EntityFrameworkCore;
@@ -17,19 +19,25 @@ public sealed class QuizService : IQuizService
     private readonly ITenantContext _tenant;
     private readonly QuizBatchNotifier _batchNotifier;
     private readonly ICourseScopeReader _scope;
+    private readonly IEnrollmentAccessGuard _enrollment;
+    private readonly ICurrentUser _currentUser;
 
     public QuizService(
         AssessmentsDbContext db,
         IEventBus events,
         ITenantContext tenant,
         QuizBatchNotifier batchNotifier,
-        ICourseScopeReader scope)
+        ICourseScopeReader scope,
+        IEnrollmentAccessGuard enrollment,
+        ICurrentUser currentUser)
     {
         _db = db;
         _events = events;
         _tenant = tenant;
         _batchNotifier = batchNotifier;
         _scope = scope;
+        _enrollment = enrollment;
+        _currentUser = currentUser;
     }
 
     public Task<QuizDto?> GetByTopicAsync(
@@ -71,6 +79,9 @@ public sealed class QuizService : IQuizService
             .FirstOrDefaultAsync(q => q.Id == quizId, ct);
 
         if (quiz is null) return Result<StartAttemptResultDto>.Failure("Quiz not found.");
+
+        if (!await CanAccessQuizAsync(quiz, userId, _currentUser.Role, ct))
+            return Result<StartAttemptResultDto>.Failure("You are not enrolled in this course.");
 
         var now = DateTime.UtcNow;
         var status = GetAvailabilityStatus(quiz, now);
@@ -131,6 +142,9 @@ public sealed class QuizService : IQuizService
             .FirstOrDefaultAsync(q => q.Id == quizId, ct);
 
         if (quiz is null) return Result<AttemptResultDto>.Failure("Quiz not found.");
+
+        if (!await CanAccessQuizAsync(quiz, userId, _currentUser.Role, ct))
+            return Result<AttemptResultDto>.Failure("You are not enrolled in this course.");
 
         var now = DateTime.UtcNow;
         Attempt? attempt = null;
@@ -220,6 +234,9 @@ public sealed class QuizService : IQuizService
             .FirstOrDefaultAsync(q => q.Id == quizId, ct);
         if (quiz is null) return Result<AttemptResultDto>.Failure("Quiz not found.");
 
+        if (!await CanAccessQuizAsync(quiz, userId, _currentUser.Role, ct))
+            return Result<AttemptResultDto>.Failure("You are not enrolled in this course.");
+
         var attempt = await _db.Attempts
             .Where(a => a.QuizId == quizId && a.UserId == userId && a.SubmittedAt != null)
             .OrderByDescending(a => a.SubmittedAt)
@@ -238,7 +255,40 @@ public sealed class QuizService : IQuizService
         CancellationToken ct)
     {
         var quiz = await quizTask;
-        return quiz is null ? null : await ToStudentDtoAsync(quiz, userId, difficulty, ct);
+        if (quiz is null) return null;
+
+        var role = userId == _currentUser.UserId ? _currentUser.Role : Roles.Student;
+        if (!await CanAccessQuizAsync(quiz, userId, role, ct))
+            return null;
+
+        return await ToStudentDtoAsync(quiz, userId, difficulty, ct);
+    }
+
+    private async Task<bool> CanAccessQuizAsync(
+        Quiz quiz, Guid? userId, string? role, CancellationToken ct)
+    {
+        if (userId is null || role != Roles.Student)
+            return true;
+
+        var bundleId = await ResolveBundleIdAsync(quiz, ct);
+        if (bundleId is null)
+            return true;
+
+        return await _enrollment.HasBundleAccessAsync(userId, role, bundleId.Value, ct);
+    }
+
+    private async Task<Guid?> ResolveBundleIdAsync(Quiz quiz, CancellationToken ct)
+    {
+        if (quiz.TopicId is Guid topicId)
+        {
+            var scope = await _scope.GetTopicScopeAsync(topicId, ct);
+            return scope?.BundleId;
+        }
+
+        if (quiz.UnitId is Guid unitId)
+            return await _scope.GetBundleIdForUnitAsync(unitId, ct);
+
+        return null;
     }
 
     private static AttemptResultDto BuildAttemptResult(

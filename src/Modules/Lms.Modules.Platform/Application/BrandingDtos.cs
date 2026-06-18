@@ -10,7 +10,8 @@ public sealed record BrandingDto(
     string MentorDisplayName,
     bool SyllabusMentorEnabled,
     bool BundlePriceEditEnabled,
-    bool McqBulkImportEnabled);
+    bool McqBulkImportEnabled,
+    bool AllowStudentSelfEnroll);
 
 public sealed record UpdateBrandingRequest(
     string DisplayName,

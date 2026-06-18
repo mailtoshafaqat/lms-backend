@@ -1,4 +1,5 @@
 using Lms.Modules.Content.Application;
+using Lms.Shared.Auth;
 using Lms.Shared.Storage;
 using Lms.Shared.Tenancy;
 using Microsoft.AspNetCore.Authorization;
@@ -33,15 +34,21 @@ public sealed class FilesController : ControllerBase
     private readonly IFileStorage _storage;
     private readonly ITenantStorageQuotaService _quota;
     private readonly ITenantContext _tenant;
+    private readonly IStoredContentAccessService _access;
+    private readonly ICurrentUser _currentUser;
 
     public FilesController(
         IFileStorage storage,
         ITenantStorageQuotaService quota,
-        ITenantContext tenant)
+        ITenantContext tenant,
+        IStoredContentAccessService access,
+        ICurrentUser currentUser)
     {
         _storage = storage;
         _quota = quota;
         _tenant = tenant;
+        _access = access;
+        _currentUser = currentUser;
     }
 
     /// <summary>Streams a stored file. Lecture/note keys require authentication.</summary>
@@ -51,6 +58,14 @@ public sealed class FilesController : ControllerBase
         if (StoredFilePaths.RequiresAuthentication(key)
             && !(User.Identity?.IsAuthenticated ?? false))
             return Unauthorized();
+
+        if (StoredFilePaths.RequiresAuthentication(key))
+        {
+            var allowed = await _access.CanDownloadAsync(_currentUser.UserId, _currentUser.Role, key, ct);
+            if (!allowed)
+                return StatusCode(StatusCodes.Status403Forbidden,
+                    new { error = "You are not enrolled in this course." });
+        }
 
         var stream = await _storage.OpenAsync(key, ct);
         if (stream is null) return NotFound();

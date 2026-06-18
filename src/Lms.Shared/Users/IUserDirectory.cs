@@ -7,4 +7,9 @@ public interface IUserDirectory
 {
     Task<IReadOnlyDictionary<Guid, string>> GetDisplayNamesAsync(
         IEnumerable<Guid> userIds, CancellationToken ct = default);
+
+    Task<IReadOnlyDictionary<Guid, UserContactSummary>> GetContactsAsync(
+        IEnumerable<Guid> userIds, CancellationToken ct = default);
 }
+
+public sealed record UserContactSummary(string FullName, string Email);

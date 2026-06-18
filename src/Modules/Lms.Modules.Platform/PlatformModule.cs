@@ -7,7 +7,7 @@ using Lms.Shared.Tenancy;
 using Lms.Shared.Integrations;
 using Lms.Shared.Mentor;
 using Lms.Shared.Modules;
-using Lms.Shared.Tenancy;
+using Lms.Shared.Payments;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -33,6 +33,7 @@ public sealed class PlatformModule : IModule
         services.AddScoped<ITenantModuleAccess, TenantModuleAccess>();
         services.AddScoped<ITenantEmailSettingsProvider, TenantEmailSettingsProvider>();
         services.AddScoped<ITenantZoomSettingsProvider, TenantZoomSettingsProvider>();
+        services.AddScoped<ITenantPaymentSettingsProvider, TenantPaymentSettingsProvider>();
         services.AddScoped<IEmailSender, SmtpEmailSender>();
         services.AddScoped<IBrandedEmailRenderer, BrandedEmailRenderer>();
         services.AddScoped<ISyllabusMentorGate, SyllabusMentorGate>();

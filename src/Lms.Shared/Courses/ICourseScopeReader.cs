@@ -33,4 +33,7 @@ public interface ICourseScopeReader
 
     Task<IReadOnlyDictionary<Guid, int>> GetTopicCountsByBundleAsync(
         IReadOnlyList<Guid> bundleIds, CancellationToken ct = default);
+
+    /// <summary>Resolves the bundle that owns syllabus content under a unit (direct or shared).</summary>
+    Task<Guid?> GetBundleIdForUnitAsync(Guid unitId, CancellationToken ct = default);
 }
