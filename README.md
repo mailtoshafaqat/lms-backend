@@ -33,6 +33,10 @@ dotnet run --project src/Lms.Api
 
 API: `http://localhost:5237`
 
+Swagger: `http://localhost:5237/swagger`
+
+**Postman:** import `postman/openapi.json` + `postman/White-Label-LMS.local.postman_environment.json` — see [postman/README.md](./postman/README.md).
+
 Connection string is in `src/Lms.Api/appsettings.json` (port `14330`, password `Password123!`).
 
 ## Dev logins

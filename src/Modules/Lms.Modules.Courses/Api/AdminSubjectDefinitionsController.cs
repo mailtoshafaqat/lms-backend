@@ -59,6 +59,21 @@ public sealed class AdminSubjectDefinitionsController : ControllerBase
         return result.Succeeded ? Ok(result.Value) : BadRequest(new { error = result.Error });
     }
 
+    [HttpPut("{id:guid}/library-units/{unitId:guid}")]
+    public async Task<IActionResult> UpdateLibraryUnit(
+        Guid id, Guid unitId, [FromBody] UpdateLibraryUnitRequest req, CancellationToken ct)
+    {
+        var result = await _definitions.UpdateLibraryUnitAsync(id, unitId, req, ct);
+        return result.Succeeded ? Ok(result.Value) : BadRequest(new { error = result.Error });
+    }
+
+    [HttpDelete("{id:guid}/library-units/{unitId:guid}")]
+    public async Task<IActionResult> DeleteLibraryUnit(Guid id, Guid unitId, CancellationToken ct)
+    {
+        var result = await _definitions.DeleteLibraryUnitAsync(id, unitId, ct);
+        return result.Succeeded ? NoContent() : BadRequest(new { error = result.Error });
+    }
+
     [HttpPost("subjects/{subjectId:guid}/link-shared-units")]
     public async Task<IActionResult> LinkSharedUnits(
         Guid subjectId, [FromBody] LinkSharedUnitsRequest req, CancellationToken ct)

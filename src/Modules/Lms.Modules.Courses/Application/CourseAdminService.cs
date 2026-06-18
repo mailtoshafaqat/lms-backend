@@ -221,7 +221,8 @@ public sealed class CourseAdminService : ICourseAdminService
             subject.Order,
             ownCount + sharedCount,
             subject.SubjectDefinitionId,
-            subject.SubjectDefinitionId is not null);
+            subject.SubjectDefinitionId is not null,
+            sharedCount);
     }
 
     public async Task<bool> DeleteBundleAsync(Guid id, CancellationToken ct = default) =>

@@ -10,7 +10,8 @@ public sealed record SubjectDto(
     int Order,
     int UnitCount,
     Guid? SubjectDefinitionId = null,
-    bool LinkedToCatalog = false);
+    bool LinkedToCatalog = false,
+    int SharedUnitLinkCount = 0);
 
 public sealed record UnitDto(
     Guid Id,

@@ -49,7 +49,8 @@ public sealed class CourseService : ICourseService
                 s.Order,
                 s.OwnUnitCount + s.SharedUnitCount,
                 s.SubjectDefinitionId,
-                s.SubjectDefinitionId is not null)).ToList());
+                s.SubjectDefinitionId is not null,
+                s.SharedUnitCount)).ToList());
     }
 
     public async Task<IReadOnlyList<UnitDto>> GetUnitsAsync(Guid subjectId, CancellationToken ct = default)

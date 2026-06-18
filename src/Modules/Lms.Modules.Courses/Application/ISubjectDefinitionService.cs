@@ -10,6 +10,8 @@ public interface ISubjectDefinitionService
     Task<Result<SubjectDefinitionDto>> UpdateAsync(Guid id, UpdateSubjectDefinitionRequest req, CancellationToken ct = default);
     Task<Result<SubjectDefinitionDto>> ArchiveAsync(Guid id, CancellationToken ct = default);
     Task<Result<UnitDto>> CreateLibraryUnitAsync(Guid definitionId, CreateLibraryUnitRequest req, CancellationToken ct = default);
+    Task<Result<UnitDto>> UpdateLibraryUnitAsync(Guid definitionId, Guid unitId, UpdateLibraryUnitRequest req, CancellationToken ct = default);
+    Task<Result> DeleteLibraryUnitAsync(Guid definitionId, Guid unitId, CancellationToken ct = default);
     Task<IReadOnlyList<UnitDto>> ListLibraryUnitsAsync(Guid definitionId, CancellationToken ct = default);
     Task<Result> LinkSharedUnitsToSubjectAsync(Guid subjectId, LinkSharedUnitsRequest req, CancellationToken ct = default);
 }

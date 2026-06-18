@@ -2,6 +2,8 @@ using Lms.Shared.Tenancy;
 
 namespace Lms.Modules.Courses.Application;
 
+public sealed record LinkedBatchPlacementDto(Guid BundleId, string BundleTitle, Guid SubjectId);
+
 public sealed record SubjectDefinitionDto(
     Guid Id,
     string Code,
@@ -10,7 +12,8 @@ public sealed record SubjectDefinitionDto(
     int SortOrder,
     bool IsActive,
     int LinkedBatchCount,
-    int LibraryUnitCount);
+    int LibraryUnitCount,
+    IReadOnlyList<LinkedBatchPlacementDto> LinkedBatches);
 
 public sealed record CreateSubjectDefinitionRequest(
     string DisplayName,
@@ -25,5 +28,7 @@ public sealed record UpdateSubjectDefinitionRequest(
     ProductProfile? Category);
 
 public sealed record CreateLibraryUnitRequest(string Title, int Order);
+
+public sealed record UpdateLibraryUnitRequest(string Title, int Order);
 
 public sealed record LinkSharedUnitsRequest(IReadOnlyList<Guid>? UnitIds);
