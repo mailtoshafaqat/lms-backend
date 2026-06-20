@@ -24,7 +24,24 @@ public static class DependencyInjection
         services.Configure<PaymentsOptions>(configuration.GetSection(PaymentsOptions.SectionName));
         services.AddSingleton<IAppUrls, AppUrls>();
 
-        services.AddSingleton<IFileStorage, LocalDiskFileStorage>();
+        RegisterFileStorage(services, configuration);
         return services;
+    }
+
+    private static void RegisterFileStorage(IServiceCollection services, IConfiguration configuration)
+    {
+        var provider = configuration.GetSection(FileStorageOptions.SectionName).GetValue<string>("Provider") ?? "Local";
+        switch (provider.Trim().ToLowerInvariant())
+        {
+            case "r2":
+                services.AddSingleton<IFileStorage, R2FileStorage>();
+                break;
+            case "azure":
+                services.AddSingleton<IFileStorage, AzureBlobFileStorage>();
+                break;
+            default:
+                services.AddSingleton<IFileStorage, LocalDiskFileStorage>();
+                break;
+        }
     }
 }

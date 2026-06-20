@@ -51,3 +51,21 @@ Connection string is in `src/Lms.Api/appsettings.json` (port `14330`, password `
 ```bash
 dotnet test
 ```
+
+### API smoke scripts (`backend/scripts/`)
+
+Run with API on port 5237:
+
+```powershell
+cd backend/scripts
+.\test-storage-quota.ps1
+.\test-seat-flashcards-storage.ps1   # flashcards gate, Local file upload
+.\test-payments.ps1
+```
+
+### Configuration (`src/Lms.Api/appsettings.json`)
+
+| Section | Purpose |
+|---------|---------|
+| `FileStorage` | `Provider`: `Local` \| `R2` \| `Azure` — file uploads (lectures, notes, branding) |
+| `StorageQuota` | `MvpBytes` / `ProBytes` — per-tenant upload limits |

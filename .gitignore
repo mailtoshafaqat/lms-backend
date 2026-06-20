@@ -4,6 +4,8 @@ node_modules/
 # Build output
 [Bb]in/
 [Oo]bj/
+.build-out/
+.build-verify-out/
 
 # Visual Studio / Rider
 .vs/

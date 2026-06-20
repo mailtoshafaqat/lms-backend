@@ -2,6 +2,7 @@ using Lms.Modules.Platform.Application;
 using Lms.Modules.Platform.Infrastructure;
 using Lms.Shared.Branding;
 using Lms.Shared.Email;
+using Lms.Shared.Events;
 using Lms.Shared.Storage;
 using Lms.Shared.Tenancy;
 using Lms.Shared.Integrations;
@@ -39,6 +40,7 @@ public sealed class PlatformModule : IModule
         services.AddScoped<ISyllabusMentorGate, SyllabusMentorGate>();
         services.AddScoped<IRequestIncidentService, RequestIncidentService>();
         services.AddScoped<ITenantStorageQuotaService, TenantStorageQuotaService>();
+        services.AddScoped<IEventHandler<ManualPaymentSubmittedEvent>, ManualPaymentSubmittedHandler>();
         services.AddScoped<IInstituteBrandingReader, InstituteBrandingReader>();
     }
 }

@@ -1,0 +1,37 @@
+[
+    {
+        "Test":  "API reachable",
+        "Pass":  true,
+        "Detail":  "http://localhost:5237"
+    },
+    {
+        "Test":  "Admin login",
+        "Pass":  true,
+        "Detail":  "admin@demo.com"
+    },
+    {
+        "Test":  "Student login",
+        "Pass":  true,
+        "Detail":  "student1@demo.com"
+    },
+    {
+        "Test":  "Flashcards 403 (not enrolled)",
+        "Pass":  true,
+        "Detail":  "SKIP: unenrolled bundle topics use shared-unit catalog (demo data); enrolled 200 test passed"
+    },
+    {
+        "Test":  "Flashcards 200 (enrolled)",
+        "Pass":  true,
+        "Detail":  "topic=2eded934-50b8-4f0a-9a76-448d5b811663 status=200"
+    },
+    {
+        "Test":  "POST /admin/files (Local storage)",
+        "Pass":  true,
+        "Detail":  "HTTP 200"
+    },
+    {
+        "Test":  "Admin storage usage readable",
+        "Pass":  true,
+        "Detail":  "used=70431 quota=21474836480"
+    }
+]

@@ -7,8 +7,10 @@ using Lms.Modules.Payments.Infrastructure;
 using Lms.Shared.Common;
 using Lms.Shared.Configuration;
 using Lms.Shared.Enrollments;
+using Lms.Shared.Events;
 using Lms.Shared.Payments;
 using Lms.Shared.Tenancy;
+using Lms.Shared.Users;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Stripe;
@@ -25,6 +27,8 @@ public sealed class PaymentCheckoutService : IPaymentCheckoutService
     private readonly IPaymentGatewayResolver _resolver;
     private readonly IAppUrls _urls;
     private readonly PaymentsOptions _paymentsOptions;
+    private readonly IEventBus _events;
+    private readonly IUserDirectory _users;
 
     public PaymentCheckoutService(
         PaymentsDbContext db,
@@ -33,7 +37,9 @@ public sealed class PaymentCheckoutService : IPaymentCheckoutService
         ITenantPaymentSettingsProvider settings,
         IPaymentGatewayResolver resolver,
         IAppUrls urls,
-        IOptions<PaymentsOptions> paymentsOptions)
+        IOptions<PaymentsOptions> paymentsOptions,
+        IEventBus events,
+        IUserDirectory users)
     {
         _db = db;
         _catalog = catalog;
@@ -42,6 +48,8 @@ public sealed class PaymentCheckoutService : IPaymentCheckoutService
         _resolver = resolver;
         _urls = urls;
         _paymentsOptions = paymentsOptions.Value;
+        _events = events;
+        _users = users;
     }
 
     public async Task<Result<CheckoutResponse>> StartCheckoutAsync(
@@ -141,6 +149,24 @@ public sealed class PaymentCheckoutService : IPaymentCheckoutService
 
         _db.PaymentOrders.Add(order);
         await _db.SaveChangesAsync(ct);
+
+        var contacts = await _users.GetContactsAsync([userId], ct);
+        contacts.TryGetValue(userId, out var contact);
+        await _events.PublishAsync(
+            new ManualPaymentSubmittedEvent(
+                order.Id,
+                order.TenantId,
+                userId,
+                contact?.FullName ?? "Student",
+                contact?.Email ?? "",
+                bundle.Id,
+                bundle.Title,
+                order.Amount,
+                order.Currency,
+                order.ExternalPaymentId ?? request.TransactionRef.Trim(),
+                string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim()),
+            ct);
+
         return Result<PaymentOrderDto>.Success(MapOrder(order));
     }
 

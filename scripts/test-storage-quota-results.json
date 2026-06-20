@@ -2,7 +2,7 @@
     {
         "Test":  "Admin storage usage",
         "Pass":  true,
-        "Detail":  "used=0 quota=21474836480"
+        "Detail":  "used=68383 quota=21474836480"
     },
     {
         "Test":  "SuperAdmin list storage",
