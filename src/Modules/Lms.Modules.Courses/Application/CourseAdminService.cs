@@ -10,11 +10,13 @@ public sealed class CourseAdminService : ICourseAdminService
 {
     private readonly CoursesDbContext _db;
     private readonly ITenantContext _tenant;
+    private readonly IBundleDtoMapper _bundles;
 
-    public CourseAdminService(CoursesDbContext db, ITenantContext tenant)
+    public CourseAdminService(CoursesDbContext db, ITenantContext tenant, IBundleDtoMapper bundles)
     {
         _db = db;
         _tenant = tenant;
+        _bundles = bundles;
     }
 
     public async Task<BundleDto> CreateBundleAsync(CreateBundleRequest req, CancellationToken ct = default)
@@ -26,17 +28,22 @@ public sealed class CourseAdminService : ICourseAdminService
             Price = req.Price,
             ValidityDays = req.ValidityDays <= 0 ? 365 : req.ValidityDays,
             IsPublished = true,
-            VideosOnly = req.VideosOnly
+            VideosOnly = req.VideosOnly,
+            MaxEnrollments = NormalizeMaxEnrollments(req.MaxEnrollments),
+            EnrollmentOpensAt = req.EnrollmentOpensAt,
+            EnrollmentClosesAt = req.EnrollmentClosesAt,
+            StartsAt = req.StartsAt,
+            EndsAt = req.EndsAt
         };
         _db.Bundles.Add(bundle);
         await _db.SaveChangesAsync(ct);
-        return new BundleDto(bundle.Id, bundle.Title, 0, bundle.Price, bundle.VideosOnly);
+        return await _bundles.MapAsync(bundle, ct);
     }
 
     public async Task<Result<BundleDto>> UpdateBundleAsync(
         Guid bundleId, UpdateBundleRequest req, CancellationToken ct = default)
     {
-        var bundle = await _db.Bundles.FirstOrDefaultAsync(b => b.Id == bundleId, ct);
+        var bundle = await _db.Bundles.Include(b => b.Subjects).FirstOrDefaultAsync(b => b.Id == bundleId, ct);
         if (bundle is null)
             return Result<BundleDto>.Failure("Bundle not found.");
         if (req.Price < 0)
@@ -48,11 +55,18 @@ public sealed class CourseAdminService : ICourseAdminService
         if (req.VideosOnly is not null)
             bundle.VideosOnly = req.VideosOnly.Value;
 
+        bundle.MaxEnrollments = NormalizeMaxEnrollments(req.MaxEnrollments);
+        bundle.EnrollmentOpensAt = req.EnrollmentOpensAt;
+        bundle.EnrollmentClosesAt = req.EnrollmentClosesAt;
+        bundle.StartsAt = req.StartsAt;
+        bundle.EndsAt = req.EndsAt;
+
         await _db.SaveChangesAsync(ct);
-        var subjectCount = await _db.Subjects.CountAsync(s => s.BundleId == bundleId, ct);
-        return Result<BundleDto>.Success(
-            new BundleDto(bundle.Id, bundle.Title, subjectCount, bundle.Price, bundle.VideosOnly));
+        return Result<BundleDto>.Success(await _bundles.MapAsync(bundle, ct));
     }
+
+    private static int? NormalizeMaxEnrollments(int? value) =>
+        value is null or <= 0 ? null : value;
 
     public async Task<Result<SubjectDto>> CreateSubjectAsync(Guid bundleId, CreateSubjectRequest req, CancellationToken ct = default)
     {

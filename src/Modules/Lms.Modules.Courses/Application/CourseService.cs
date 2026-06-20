@@ -6,15 +6,28 @@ namespace Lms.Modules.Courses.Application;
 public sealed class CourseService : ICourseService
 {
     private readonly CoursesDbContext _db;
+    private readonly IBundleDtoMapper _bundles;
 
-    public CourseService(CoursesDbContext db) => _db = db;
+    public CourseService(CoursesDbContext db, IBundleDtoMapper bundles)
+    {
+        _db = db;
+        _bundles = bundles;
+    }
 
-    public async Task<IReadOnlyList<BundleDto>> GetBundlesAsync(CancellationToken ct = default) =>
-        await _db.Bundles
+    public async Task<IReadOnlyList<BundleDto>> GetBundlesAsync(CancellationToken ct = default)
+    {
+        var bundles = await _db.Bundles
+            .AsNoTracking()
+            .Include(b => b.Subjects)
             .Where(b => b.IsPublished)
             .OrderBy(b => b.Title)
-            .Select(b => new BundleDto(b.Id, b.Title, b.Subjects.Count, b.Price, b.VideosOnly))
             .ToListAsync(ct);
+
+        var result = new List<BundleDto>(bundles.Count);
+        foreach (var bundle in bundles)
+            result.Add(await _bundles.MapAsync(bundle, ct));
+        return result;
+    }
 
     public async Task<BundleDetailDto?> GetBundleAsync(Guid bundleId, CancellationToken ct = default)
     {
@@ -88,4 +101,5 @@ public sealed class CourseService : ICourseService
             .Take(take)
             .Select(t => new TopicDto(t.Id, t.Title, t.Order, t.HasVideo, t.McqCount, t.FlashcardCount))
             .ToListAsync(ct);
+
 }

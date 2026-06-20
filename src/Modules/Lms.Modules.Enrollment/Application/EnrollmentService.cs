@@ -1,6 +1,7 @@
 using Lms.Modules.Courses.Contracts;
 using Lms.Modules.Enrollment.Infrastructure;
 using Lms.Shared.Common;
+using Lms.Shared.Enrollments;
 using Lms.Shared.Payments;
 using Lms.Shared.Tenancy;
 using Microsoft.EntityFrameworkCore;
@@ -15,19 +16,22 @@ public sealed class EnrollmentService : IEnrollmentService
     private readonly ITenantContext _tenant;
     private readonly ITenantFeaturesProvider _features;
     private readonly ITenantPaymentSettingsProvider _payments;
+    private readonly IBundleEnrollmentPolicy _batchPolicy;
 
     public EnrollmentService(
         EnrollmentDbContext db,
         IBundleCatalog catalog,
         ITenantContext tenant,
         ITenantFeaturesProvider features,
-        ITenantPaymentSettingsProvider payments)
+        ITenantPaymentSettingsProvider payments,
+        IBundleEnrollmentPolicy batchPolicy)
     {
         _db = db;
         _catalog = catalog;
         _tenant = tenant;
         _features = features;
         _payments = payments;
+        _batchPolicy = batchPolicy;
     }
 
     public async Task<Result<EnrollmentDto>> EnrollAsync(Guid userId, Guid bundleId, CancellationToken ct = default)
@@ -58,19 +62,23 @@ public sealed class EnrollmentService : IEnrollmentService
                 "Free self-enrollment is not enabled. Contact your institute administrator.");
         }
 
-        return await CreateEnrollmentAsync(userId, bundleId, ct);
+        return await CreateEnrollmentAsync(userId, bundleId, BundleEnrollmentCheckMode.Student, ct);
     }
 
     public Task<Result<EnrollmentDto>> ProvisionEnrollmentAsync(
         Guid userId, Guid bundleId, CancellationToken ct = default) =>
-        CreateEnrollmentAsync(userId, bundleId, ct);
+        CreateEnrollmentAsync(userId, bundleId, BundleEnrollmentCheckMode.AdminOverride, ct);
 
     private async Task<Result<EnrollmentDto>> CreateEnrollmentAsync(
-        Guid userId, Guid bundleId, CancellationToken ct)
+        Guid userId, Guid bundleId, BundleEnrollmentCheckMode mode, CancellationToken ct)
     {
         var bundle = await _catalog.GetBundleAsync(bundleId, ct);
         if (bundle is null || !bundle.IsPublished)
             return Result<EnrollmentDto>.Failure("Bundle not found.");
+
+        var policy = await _batchPolicy.CheckCanEnrollAsync(bundleId, mode, ct);
+        if (!policy.Allowed)
+            return Result<EnrollmentDto>.Failure(policy.ErrorMessage ?? "Cannot enroll in this batch.");
 
         var existing = await _db.Enrollments
             .FirstOrDefaultAsync(e => e.UserId == userId && e.BundleId == bundleId, ct);
@@ -78,6 +86,10 @@ public sealed class EnrollmentService : IEnrollmentService
             return Result<EnrollmentDto>.Failure("Already enrolled in this bundle.");
 
         var now = DateTime.UtcNow;
+        var expiresAt = now.AddDays(bundle.ValidityDays);
+        if (bundle.EndsAt is not null && bundle.EndsAt.Value < expiresAt)
+            expiresAt = bundle.EndsAt.Value;
+
         var enrollment = new EnrollmentEntity
         {
             TenantId = _tenant.TenantId,
@@ -86,7 +98,7 @@ public sealed class EnrollmentService : IEnrollmentService
             BundleTitle = bundle.Title,
             PricePaid = bundle.Price,
             EnrolledAt = now,
-            ExpiresAt = now.AddDays(bundle.ValidityDays)
+            ExpiresAt = expiresAt
         };
 
         _db.Enrollments.Add(enrollment);

@@ -1,8 +1,25 @@
 namespace Lms.Modules.Courses.Application;
 
-public sealed record CreateBundleRequest(string Title, decimal Price, int ValidityDays, bool VideosOnly = false);
+public sealed record CreateBundleRequest(
+    string Title,
+    decimal Price,
+    int ValidityDays,
+    bool VideosOnly = false,
+    int? MaxEnrollments = null,
+    DateTime? EnrollmentOpensAt = null,
+    DateTime? EnrollmentClosesAt = null,
+    DateTime? StartsAt = null,
+    DateTime? EndsAt = null);
 
-public sealed record UpdateBundleRequest(decimal Price, int? ValidityDays = null, bool? VideosOnly = null);
+public sealed record UpdateBundleRequest(
+    decimal Price,
+    int? ValidityDays = null,
+    bool? VideosOnly = null,
+    int? MaxEnrollments = null,
+    DateTime? EnrollmentOpensAt = null,
+    DateTime? EnrollmentClosesAt = null,
+    DateTime? StartsAt = null,
+    DateTime? EndsAt = null);
 
 public sealed record CreateSubjectRequest(
     string Title,

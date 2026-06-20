@@ -6,8 +6,13 @@ namespace Lms.Modules.Enrollment.Application;
 public sealed class EnrollmentAccessGuard : IEnrollmentAccessGuard
 {
     private readonly IEnrollmentReader _enrollments;
+    private readonly IBundleEnrollmentPolicy _policy;
 
-    public EnrollmentAccessGuard(IEnrollmentReader enrollments) => _enrollments = enrollments;
+    public EnrollmentAccessGuard(IEnrollmentReader enrollments, IBundleEnrollmentPolicy policy)
+    {
+        _enrollments = enrollments;
+        _policy = policy;
+    }
 
     public async Task<bool> HasBundleAccessAsync(
         Guid? userId, string? role, Guid bundleId, CancellationToken ct = default)
@@ -19,6 +24,9 @@ public sealed class EnrollmentAccessGuard : IEnrollmentAccessGuard
             return false;
 
         var bundles = await _enrollments.GetActiveBundleIdsAsync(userId.Value, ct);
-        return bundles.Contains(bundleId);
+        if (!bundles.Contains(bundleId))
+            return false;
+
+        return await _policy.IsContentAccessibleAsync(bundleId, ct);
     }
 }

@@ -13,6 +13,16 @@ public sealed class EnrollmentWriter : IEnrollmentWriter
 
     public async Task<EnrollmentSummary?> EnrollAsync(Guid userId, Guid bundleId, CancellationToken ct = default)
     {
+        var result = await _enrollments.EnrollAsync(userId, bundleId, ct);
+        if (!result.Succeeded || result.Value is null) return null;
+
+        var e = result.Value;
+        return new EnrollmentSummary(e.Id, e.BundleId, e.BundleTitle, e.ExpiresAt);
+    }
+
+    public async Task<EnrollmentSummary?> ProvisionEnrollAsync(
+        Guid userId, Guid bundleId, CancellationToken ct = default)
+    {
         var result = await _enrollments.ProvisionEnrollmentAsync(userId, bundleId, ct);
         if (!result.Succeeded || result.Value is null) return null;
 
@@ -68,5 +78,11 @@ public sealed class EnrollmentReader : IEnrollmentReader
             .Select(e => e.UserId)
             .Distinct()
             .ToListAsync(ct);
+    }
+
+    public Task<int> CountActiveEnrollmentsAsync(Guid bundleId, CancellationToken ct = default)
+    {
+        var now = DateTime.UtcNow;
+        return _db.Enrollments.CountAsync(e => e.BundleId == bundleId && e.ExpiresAt > now, ct);
     }
 }

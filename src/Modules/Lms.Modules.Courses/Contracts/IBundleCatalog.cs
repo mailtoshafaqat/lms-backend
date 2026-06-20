@@ -8,7 +8,12 @@ public sealed record BundleSummary(
     decimal Price,
     int ValidityDays,
     bool IsPublished,
-    bool VideosOnly);
+    bool VideosOnly,
+    int? MaxEnrollments,
+    DateTime? EnrollmentOpensAt,
+    DateTime? EnrollmentClosesAt,
+    DateTime? StartsAt,
+    DateTime? EndsAt);
 
 public interface IBundleCatalog
 {

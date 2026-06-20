@@ -41,7 +41,7 @@ public sealed class AdminUsersController : ControllerBase
     [HttpPost("{userId:guid}/enroll")]
     public async Task<IActionResult> Enroll(Guid userId, [FromBody] EnrollStudentRequest req, CancellationToken ct)
     {
-        var summary = await _enrollments.EnrollAsync(userId, req.BundleId, ct);
+        var summary = await _enrollments.ProvisionEnrollAsync(userId, req.BundleId, ct);
         return summary is null
             ? BadRequest(new { error = "Enrollment failed. Check bundle id or existing enrollment." })
             : Ok(summary);

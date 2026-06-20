@@ -8,6 +8,9 @@ public interface IEnrollmentWriter
 {
     Task<EnrollmentSummary?> EnrollAsync(Guid userId, Guid bundleId, CancellationToken ct = default);
 
+    /// <summary>Admin-provisioned enrollment — bypasses cap and enrollment window.</summary>
+    Task<EnrollmentSummary?> ProvisionEnrollAsync(Guid userId, Guid bundleId, CancellationToken ct = default);
+
     Task<EnrollmentSummary?> ExtendEnrollmentAsync(
         Guid userId, Guid bundleId, DateTime expiresAt, CancellationToken ct = default);
 }
@@ -22,4 +25,6 @@ public interface IEnrollmentReader
         Guid userId, CancellationToken ct = default);
 
     Task<IReadOnlyList<Guid>> GetActiveUserIdsForBundleAsync(Guid bundleId, CancellationToken ct = default);
+
+    Task<int> CountActiveEnrollmentsAsync(Guid bundleId, CancellationToken ct = default);
 }

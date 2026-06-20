@@ -1,0 +1,87 @@
+[
+  {
+    "Test": "Admin login",
+    "Pass": true,
+    "Detail": "admin@demo.com"
+  },
+  {
+    "Test": "List students",
+    "Pass": true,
+    "Detail": "count=38 emails=safa@demo.com, student9@demo.com, studentx@demo.com, videoonly@test.com, student+gen-lms-e974ac96@test.local, student+gen-lms-f0e13c89@test.local, student3@demo.com, student2@demo.com, student1@demo.com, e2e.student.hira.shah.20260610-230549@demo.com, e2e.student.usman.ali.20260610-230549@demo.com, e2e.student.sara.malik.20260610-230549@demo.com, e2e.student.bilal.ahmed.20260610-230549@demo.com, e2e.student.amina.khan.20260610-230549@demo.com, xysa@test.com, e2e.student.hira.shah.20260609-152955@demo.com, e2e.student.usman.ali.20260609-152955@demo.com, e2e.student.sara.malik.20260609-152955@demo.com, e2e.student.bilal.ahmed.20260609-152955@demo.com, e2e.student.amina.khan.20260609-152955@demo.com, e2e.student5@demo.com, e2e.student4@demo.com, e2e.student3@demo.com, e2e.student2@demo.com, e2e.student1@demo.com, smoke.student@demo.com, smoke.unenrolled.768204815@test.local, noenrol_000619@test.com, live_000618@test.com, noenrol_000458@test.com, live_000458@test.com, student_234508@test.com, s872542146@demo.com, mailtoshafaqat@gmail.com, z6642768@demo.com, u18336220@demo.com, u1240025994@demo.com, t482375923@demo.com"
+  },
+  {
+    "Test": "Found student9",
+    "Pass": true,
+    "Detail": "student9 <student9@demo.com>"
+  },
+  {
+    "Test": "Found safa",
+    "Pass": true,
+    "Detail": "safa <safa@demo.com>"
+  },
+  {
+    "Test": "Login student1@demo.com",
+    "Pass": true,
+    "Detail": "OK"
+  },
+  {
+    "Test": "Bundles for student1@demo.com",
+    "Pass": true,
+    "Detail": "total=5 open=5"
+  },
+  {
+    "Test": "Login student9@demo.com",
+    "Pass": true,
+    "Detail": "OK"
+  },
+  {
+    "Test": "Bundles for student9@demo.com",
+    "Pass": true,
+    "Detail": "total=5 open=5"
+  },
+  {
+    "Test": "Login safa@demo.com",
+    "Pass": true,
+    "Detail": "OK"
+  },
+  {
+    "Test": "Bundles for safa@demo.com",
+    "Pass": true,
+    "Detail": "total=5 open=5"
+  },
+  {
+    "Test": "Set NotYetOpen on ECAT Crash Course",
+    "Pass": true,
+    "Detail": "status=NotYetOpen"
+  },
+  {
+    "Test": "student1 checkout when NotYetOpen",
+    "Pass": false,
+    "Detail": "Expected failure but gateways returned"
+  },
+  {
+    "Test": "Admin provision student1 (bypass window)",
+    "Pass": false,
+    "Detail": "\r\n{\r\n  \"error\": \"Enrollment failed. Check bundle id or existing enrollment.\"\r\n}"
+  },
+  {
+    "Test": "Enrollments student1@demo.com",
+    "Pass": true,
+    "Detail": "3 batch(es): MDCAT 2026-July Session, ECAT Crash Course, MDCAT Premium 2026"
+  },
+  {
+    "Test": "Enrollments student9@demo.com",
+    "Pass": true,
+    "Detail": "1 batch(es): ECAT Crash Course"
+  },
+  {
+    "Test": "Enrollments safa@demo.com",
+    "Pass": true,
+    "Detail": "2 batch(es): ECAT Crash Course, ECAT XYZ"
+  },
+  {
+    "Test": "Restore ECAT Crash Course settings",
+    "Pass": true,
+    "Detail": "OK"
+  }
+]

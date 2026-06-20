@@ -93,7 +93,7 @@ public sealed class AdminUserService : IAdminUserService
         EnrollmentSummary? enrollment = null;
         if (request.BundleId is { } bundleId && bundleId != Guid.Empty)
         {
-            enrollment = await _enrollments.EnrollAsync(user.Id, bundleId, ct);
+            enrollment = await _enrollments.ProvisionEnrollAsync(user.Id, bundleId, ct);
             if (enrollment is null)
                 _logger.LogWarning("Student {UserId} created but enrollment into {BundleId} failed.", user.Id, bundleId);
         }

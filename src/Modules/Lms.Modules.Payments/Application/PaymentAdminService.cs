@@ -105,7 +105,7 @@ public sealed class PaymentAdminService : IPaymentAdminService
         order.Status = PaymentStatus.Paid;
         order.PaidAt = DateTime.UtcNow;
 
-        var enrollment = await _enrollments.EnrollAsync(order.UserId, order.BundleId, ct);
+        var enrollment = await _enrollments.ProvisionEnrollAsync(order.UserId, order.BundleId, ct);
         if (enrollment is not null)
             order.EnrollmentId = enrollment.Id;
 
@@ -166,7 +166,7 @@ public sealed class PaymentAdminService : IPaymentAdminService
 
         _db.PaymentOrders.Add(order);
 
-        var enrollment = await _enrollments.EnrollAsync(request.UserId, bundle.Id, ct);
+        var enrollment = await _enrollments.ProvisionEnrollAsync(request.UserId, bundle.Id, ct);
         if (enrollment is not null)
             order.EnrollmentId = enrollment.Id;
 

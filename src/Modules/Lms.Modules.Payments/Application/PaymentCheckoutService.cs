@@ -29,6 +29,7 @@ public sealed class PaymentCheckoutService : IPaymentCheckoutService
     private readonly PaymentsOptions _paymentsOptions;
     private readonly IEventBus _events;
     private readonly IUserDirectory _users;
+    private readonly IBundleEnrollmentPolicy _batchPolicy;
 
     public PaymentCheckoutService(
         PaymentsDbContext db,
@@ -39,7 +40,8 @@ public sealed class PaymentCheckoutService : IPaymentCheckoutService
         IAppUrls urls,
         IOptions<PaymentsOptions> paymentsOptions,
         IEventBus events,
-        IUserDirectory users)
+        IUserDirectory users,
+        IBundleEnrollmentPolicy batchPolicy)
     {
         _db = db;
         _catalog = catalog;
@@ -50,6 +52,7 @@ public sealed class PaymentCheckoutService : IPaymentCheckoutService
         _paymentsOptions = paymentsOptions.Value;
         _events = events;
         _users = users;
+        _batchPolicy = batchPolicy;
     }
 
     public async Task<Result<CheckoutResponse>> StartCheckoutAsync(
@@ -62,6 +65,11 @@ public sealed class PaymentCheckoutService : IPaymentCheckoutService
         var bundle = await _catalog.GetBundleAsync(request.BundleId, ct);
         if (bundle is null || !bundle.IsPublished)
             return Result<CheckoutResponse>.Failure("Bundle not found.");
+
+        var batchCheck = await _batchPolicy.CheckCanEnrollAsync(
+            request.BundleId, BundleEnrollmentCheckMode.Student, ct);
+        if (!batchCheck.Allowed)
+            return Result<CheckoutResponse>.Failure(batchCheck.ErrorMessage ?? "Cannot enroll in this batch.");
 
         var settings = await _settings.GetAsync(ct);
         if (settings is null)

@@ -1,0 +1,27 @@
+[
+  {
+    "Test": "API reachable",
+    "Pass": true,
+    "Detail": "http://localhost:5237"
+  },
+  {
+    "Test": "Admin login",
+    "Pass": true,
+    "Detail": "admin@demo.com"
+  },
+  {
+    "Test": "GET /bundles enrollment fields",
+    "Pass": true,
+    "Detail": "count=4 status=Open active=15"
+  },
+  {
+    "Test": "PUT batch window -> NotYetOpen",
+    "Pass": true,
+    "Detail": "status=NotYetOpen cap=1"
+  },
+  {
+    "Test": "Restore batch settings",
+    "Pass": true,
+    "Detail": "ECAT XYZ"
+  }
+]

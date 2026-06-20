@@ -20,6 +20,7 @@ public sealed class CoursesModule : IModule
                 configuration.GetConnectionString("Default"),
                 sql => sql.MigrationsHistoryTable("__EFMigrationsHistory", "courses")));
 
+        services.AddScoped<IBundleDtoMapper, BundleDtoMapper>();
         services.AddScoped<ICourseService, CourseService>();
         services.AddScoped<ICourseAdminService, CourseAdminService>();
         services.AddScoped<ISubjectDefinitionService, SubjectDefinitionService>();
